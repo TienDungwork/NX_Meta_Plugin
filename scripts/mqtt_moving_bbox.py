@@ -1,23 +1,20 @@
-#!/usr/bin/env python3
-"""
-MQTT Moving Bounding Box Test
-Simulates bounding boxes moving from BOTTOM to TOP (like fake generation)
-"""
+#!/usr/bin/env python3"
 
 import paho.mqtt.client as mqtt
 import json
 import time
 import math
+from uuid import uuid4
 
-BROKER = "127.0.0.1"
+BROKER = "192.168.1.215"
 PORT = 1883
 CAMERA_ID = "742b49df-51af-29e2-75e5-d179f1b2d74d"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
 
 # Simulating fake generation constants
-TRACK_LENGTH = 100  # kTrackLength from device_agent.cpp
-BBOX_WIDTH = 0.15   # Similar to fake
-BBOX_HEIGHT = 0.15  # Similar to fake
+TRACK_LENGTH = 100
+BBOX_WIDTH = 0.15
+BBOX_HEIGHT = 0.15
 
 def calculate_y_position(frame_index):
     """
@@ -68,7 +65,7 @@ def send_moving_detections():
             detections = {
                 "detections": [
                     {
-                        "label": "person",
+                        "label": "smoke",
                         "confidence": 0.95,
                         "bbox": [
                             0.15,           # x: left side
@@ -79,7 +76,7 @@ def send_moving_detections():
                         "trackId": 1
                     },
                     {
-                        "label": "car",
+                        "label": "Fire",
                         "confidence": 0.90,
                         "bbox": [
                             0.70,           # x: right side

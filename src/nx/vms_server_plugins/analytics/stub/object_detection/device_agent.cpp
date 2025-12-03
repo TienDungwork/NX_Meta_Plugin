@@ -84,7 +84,7 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
 
     // Check if MQTT is active (ever received any message)
     bool hasMqttConnection = m_mqttReceiver->hasReceivedData();
-    std::vector<DetectedObject> mqttDetections = m_mqttReceiver->getDetectedObjects();
+    std::vector<DetectedObject> mqttDetections = m_mqttReceiver->getAndClearDetectedObjects();
     
     if (hasMqttConnection)
     {
@@ -108,22 +108,15 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 // Convert label to lowercase for comparison
                 std::transform(label.begin(), label.end(), label.begin(), ::tolower);
                 
-                if (label == "person")
-                    objectTypeId = "nx.base.Person";
-                else if (label == "car")
-                    objectTypeId = "nx.base.Car";
-                else if (label == "truck")
-                    objectTypeId = "nx.base.Truck";
-                else if (label == "bus")
-                    objectTypeId = "nx.base.Bus";
-                else if (label == "bike" || label == "bicycle")
-                    objectTypeId = "nx.base.Bike";
-                else if (label == "dog")
-                    objectTypeId = "nx.base.Dog";
-                else if (label == "cat")
-                    objectTypeId = "nx.base.Cat";
-                else
-                    objectTypeId = "nx.base.Unknown";
+                // Capitalize first letter for nx.base format
+                std::string capitalizedLabel = label;
+                if (!capitalizedLabel.empty())
+                    capitalizedLabel[0] = std::toupper(capitalizedLabel[0]);
+                
+                // All labels use nx.base.{Label} format
+                objectTypeId = "nx.base." + capitalizedLabel;
+                
+                NX_PRINT << "MQTT label '" << label << "' -> object type: " << objectTypeId;
                 
                 // Check if this object type is enabled in settings
                 if (!m_objectTypeIdsToGenerate.empty() && 
@@ -177,18 +170,8 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
     }
     else
     {
-        // NO MQTT CONNECTION - USE FAKE GENERATION (như code cũ)
-        std::lock_guard<std::mutex> lock(m_mutex);
-        
-        std::vector<Ptr<ObjectMetadata>> objects = generateObjects(
-            kObjectAttributes, m_objectTypeIdsToGenerate, m_sendAttributes);
-
-        for (int i = 0; i < objects.size(); ++i)
-        {
-            objects[i]->setBoundingBox(generateBoundingBox(m_frameIndex, i, objects.size()));
-            objects[i]->setTrackId(trackIdByTrackIndex(i));
-            metadataPacket->addItem(objects[i].get());
-        }
+        // NO MQTT CONNECTION - KHÔNG HIỂN THỊ GÌ (fake bbox đã TẮT)
+        // Không thêm objects nào vào metadataPacket
     }
 
     return metadataPacket;
@@ -210,7 +193,7 @@ DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
     NX_PRINT << "MQTT Topic: " << topic;
     
     // Initialize MQTT receiver to get AI detections for this specific camera
-    m_mqttReceiver = std::make_unique<MqttObjectReceiver>("127.0.0.1", 1883, topic);
+    m_mqttReceiver = std::make_unique<MqttObjectReceiver>("192.168.1.215", 1883, topic);
     m_mqttReceiver->start();
 }
 

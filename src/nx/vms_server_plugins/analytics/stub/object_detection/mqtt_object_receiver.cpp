@@ -3,11 +3,8 @@
 #include "mqtt_object_receiver.h"
 
 #include <iostream>
-#include <cstring>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <chrono>
+#include <algorithm>
 
 #include <nx/kit/json.h>
 
@@ -21,6 +18,29 @@ namespace analytics {
 namespace stub {
 namespace object_detection {
 
+void MqttObjectReceiver::Callback::connection_lost(const std::string& cause)
+{
+    NX_PRINT << "Connection lost: " << cause;
+    
+    // Clear objects and reset flag when connection is lost
+    {
+        std::lock_guard<std::mutex> lock(m_receiver->m_objectsMutex);
+        m_receiver->m_detectedObjects.clear();
+        m_receiver->m_hasReceivedData.store(false);
+    }
+    
+    // Try to reconnect
+    m_receiver->reconnect();
+}
+
+void MqttObjectReceiver::Callback::message_arrived(mqtt::const_message_ptr msg)
+{
+    NX_PRINT << "Message arrived on topic: " << msg->get_topic();
+    NX_PRINT << "Payload (" << msg->get_payload().length() << " bytes): " << msg->get_payload_str();
+    
+    m_receiver->parseDetectionMessage(msg->get_payload_str());
+}
+
 MqttObjectReceiver::MqttObjectReceiver(
     const std::string& broker,
     int port,
@@ -30,6 +50,23 @@ MqttObjectReceiver::MqttObjectReceiver(
     , m_topic(topic)
 {
     NX_PRINT << "Created (broker: " << m_broker << ":" << m_port << ", topic: " << m_topic << ")";
+    
+    // Create MQTT client with unique ID based on topic (includes camera ID)
+    std::string serverAddress = "tcp://" + m_broker + ":" + std::to_string(m_port);
+    std::string clientId = "vms_ai_receiver_" + m_topic;
+    // Replace slashes in topic to make valid client ID
+    std::replace(clientId.begin(), clientId.end(), '/', '_');
+    
+    NX_PRINT << "MQTT Client ID: " << clientId;
+    
+    m_client = std::make_shared<mqtt::async_client>(serverAddress, clientId);
+    m_callback = std::make_shared<Callback>(this);
+    m_client->set_callback(*m_callback);
+    
+    // Configure connection options
+    m_connOpts.set_keep_alive_interval(20);
+    m_connOpts.set_clean_session(true);
+    m_connOpts.set_automatic_reconnect(true);
 }
 
 MqttObjectReceiver::~MqttObjectReceiver()
@@ -40,272 +77,73 @@ MqttObjectReceiver::~MqttObjectReceiver()
 
 void MqttObjectReceiver::start()
 {
-    if (m_running.load())
+    NX_PRINT << "Starting connection...";
+    
+    try
     {
-        NX_PRINT << "Already running";
-        return;
+        auto tok = m_client->connect(m_connOpts);
+        tok->wait();
+        
+        NX_PRINT << "Connected to broker, subscribing to " << m_topic;
+        
+        m_client->subscribe(m_topic, 0)->wait();
+        
+        NX_PRINT << "Successfully subscribed";
     }
-
-    m_running.store(true);
-    m_thread = std::thread(&MqttObjectReceiver::workerThread, this);
-    NX_PRINT << "Started";
+    catch (const mqtt::exception& exc)
+    {
+        NX_PRINT << "Error: " << exc.what();
+    }
 }
 
 void MqttObjectReceiver::stop()
 {
-    if (!m_running.load())
-        return;
-
-    m_running.store(false);
-
-    if (m_thread.joinable())
-        m_thread.join();
-
-    NX_PRINT << "Stopped";
+    try
+    {
+        if (m_client && m_client->is_connected())
+        {
+            NX_PRINT << "Disconnecting...";
+            m_client->disconnect()->wait();
+        }
+    }
+    catch (const mqtt::exception& exc)
+    {
+        NX_PRINT << "Error during disconnect: " << exc.what();
+    }
 }
 
-std::vector<DetectedObject> MqttObjectReceiver::getDetectedObjects()
+void MqttObjectReceiver::reconnect()
+{
+    NX_PRINT << "Attempting to reconnect...";
+    
+    try
+    {
+        auto tok = m_client->connect(m_connOpts);
+        tok->wait();
+        
+        NX_PRINT << "Reconnected, resubscribing to " << m_topic;
+        m_client->subscribe(m_topic, 0)->wait();
+    }
+    catch (const mqtt::exception& exc)
+    {
+        NX_PRINT << "Reconnect failed: " << exc.what();
+    }
+}
+
+std::vector<DetectedObject> MqttObjectReceiver::getAndClearDetectedObjects()
 {
     std::lock_guard<std::mutex> lock(m_objectsMutex);
-    return m_detectedObjects;
+    
+    // Get objects and clear immediately (consume pattern)
+    std::vector<DetectedObject> result = std::move(m_detectedObjects);
+    m_detectedObjects.clear();
+    
+    return result;
 }
 
 bool MqttObjectReceiver::hasReceivedData() const
 {
     return m_hasReceivedData.load();
-}
-
-void MqttObjectReceiver::clearObjects()
-{
-    std::lock_guard<std::mutex> lock(m_objectsMutex);
-    m_detectedObjects.clear();
-}
-
-void MqttObjectReceiver::workerThread()
-{
-    NX_PRINT << "Worker thread started";
-
-    while (m_running.load())
-    {
-        if (connectToBroker())
-        {
-            receiveMessages();
-        }
-        
-        if (m_running.load())
-        {
-            NX_PRINT << "Reconnecting in 5 seconds...";
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-        }
-    }
-
-    NX_PRINT << "Worker thread stopped";
-}
-
-bool MqttObjectReceiver::connectToBroker()
-{
-    NX_PRINT << "Connecting to broker " << m_broker << ":" << m_port;
-    
-    // Create socket
-    m_sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_sockfd < 0)
-    {
-        NX_PRINT << "Failed to create socket";
-        return false;
-    }
-
-    // Set socket timeout to 30 seconds
-    struct timeval tv;
-    tv.tv_sec = 30;
-    tv.tv_usec = 0;
-    setsockopt(m_sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
-
-    // Connect to broker
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(m_port);
-    inet_pton(AF_INET, m_broker.c_str(), &serverAddr.sin_addr);
-
-    if (connect(m_sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0)
-    {
-        NX_PRINT << "Failed to connect to broker";
-        close(m_sockfd);
-        m_sockfd = -1;
-        return false;
-    }
-
-    NX_PRINT << "Socket connected, sending MQTT CONNECT";
-
-    // Send MQTT CONNECT packet
-    std::vector<uint8_t> connectPacket;
-    connectPacket.push_back(0x10); // CONNECT message type
-    
-    std::string clientId = "vms_ai_receiver";
-    std::string protocolName = "MQTT";
-    
-    // Calculate remaining length
-    int remainingLength = 2 + protocolName.length() + 1 + 1 + 2 + 2 + clientId.length();
-    connectPacket.push_back(remainingLength);
-    
-    // Protocol name length
-    connectPacket.push_back(0x00);
-    connectPacket.push_back(protocolName.length());
-    for (char c : protocolName)
-        connectPacket.push_back(c);
-    
-    // Protocol level (MQTT 3.1.1)
-    connectPacket.push_back(0x04);
-    
-    // Connect flags (clean session)
-    connectPacket.push_back(0x02);
-    
-    // Keep alive
-    connectPacket.push_back(0x00);
-    connectPacket.push_back(0x3C); // 60 seconds
-    
-    // Client ID length
-    connectPacket.push_back((clientId.length() >> 8) & 0xFF);
-    connectPacket.push_back(clientId.length() & 0xFF);
-    for (char c : clientId)
-        connectPacket.push_back(c);
-    
-    send(m_sockfd, connectPacket.data(), connectPacket.size(), 0);
-    
-    // Wait for CONNACK
-    uint8_t connackBuffer[4];
-    int bytesRead = recv(m_sockfd, connackBuffer, sizeof(connackBuffer), 0);
-    if (bytesRead < 4 || connackBuffer[0] != 0x20)
-    {
-        NX_PRINT << "Failed to receive CONNACK";
-        close(m_sockfd);
-        m_sockfd = -1;
-        return false;
-    }
-    
-    NX_PRINT << "Received CONNACK, sending SUBSCRIBE to " << m_topic;
-    
-    // Send SUBSCRIBE packet
-    std::vector<uint8_t> subscribePacket;
-    subscribePacket.push_back(0x82); // SUBSCRIBE message type with QoS 1
-    
-    // Calculate remaining length
-    int subRemainingLength = 2 + 2 + m_topic.length() + 1;
-    subscribePacket.push_back(subRemainingLength);
-    
-    // Packet identifier
-    subscribePacket.push_back(0x00);
-    subscribePacket.push_back(0x01);
-    
-    // Topic length
-    subscribePacket.push_back((m_topic.length() >> 8) & 0xFF);
-    subscribePacket.push_back(m_topic.length() & 0xFF);
-    for (char c : m_topic)
-        subscribePacket.push_back(c);
-    
-    // QoS level
-    subscribePacket.push_back(0x00);
-    
-    send(m_sockfd, subscribePacket.data(), subscribePacket.size(), 0);
-    
-    // Wait for SUBACK
-    uint8_t subackBuffer[5];
-    bytesRead = recv(m_sockfd, subackBuffer, sizeof(subackBuffer), 0);
-    if (bytesRead < 5 || subackBuffer[0] != 0x90)
-    {
-        NX_PRINT << "Failed to receive SUBACK";
-        close(m_sockfd);
-        m_sockfd = -1;
-        return false;
-    }
-
-    NX_PRINT << "Successfully subscribed to " << m_topic;
-    return true;
-}
-
-void MqttObjectReceiver::receiveMessages()
-{
-    NX_PRINT << "Starting message receive loop";
-    
-    std::vector<uint8_t> buffer(4096);
-    int messageCount = 0;
-    
-    while (m_running.load())
-    {
-        int n = recv(m_sockfd, buffer.data(), buffer.size(), 0);
-        
-        NX_PRINT << "recv() returned: " << n << " (errno: " << errno << ")";
-        
-        if (n <= 0)
-        {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                // Timeout, continue
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                continue;
-            }
-            NX_PRINT << "Connection lost (recv returned " << n << ", errno: " << errno << ")";
-            break;
-        }
-
-        messageCount++;
-        NX_PRINT << "Received data packet #" << messageCount << ", " << n << " bytes";
-        NX_PRINT << "First byte: 0x" << std::hex << (int)buffer[0] << std::dec;
-
-        // Parse MQTT PUBLISH message
-        if ((buffer[0] & 0xF0) == 0x30) // PUBLISH
-        {
-            NX_PRINT << "This is a PUBLISH message";
-            int pos = 1;
-            
-            // Read remaining length
-            int multiplier = 1;
-            int remainingLength = 0;
-            uint8_t encodedByte;
-            do
-            {
-                encodedByte = buffer[pos++];
-                remainingLength += (encodedByte & 127) * multiplier;
-                multiplier *= 128;
-            } while ((encodedByte & 128) != 0);
-            
-            NX_PRINT << "Remaining length: " << remainingLength;
-            
-            // Read topic length
-            int topicLength = (buffer[pos] << 8) | buffer[pos + 1];
-            pos += 2;
-            
-            NX_PRINT << "Topic length: " << topicLength;
-            
-            // Read topic
-            std::string topic(reinterpret_cast<char*>(&buffer[pos]), topicLength);
-            pos += topicLength;
-            
-            NX_PRINT << "Topic: " << topic;
-            
-            // Read payload
-            int payloadLength = remainingLength - 2 - topicLength;
-            std::string payload(reinterpret_cast<char*>(&buffer[pos]), payloadLength);
-            
-            NX_PRINT << "Received MQTT message (" << payload.length() << " bytes)";
-            NX_PRINT << "Payload: " << payload;
-            
-            // Parse and store detections
-            parseDetectionMessage(payload);
-        }
-        else
-        {
-            NX_PRINT << "NOT a PUBLISH message (type: 0x" << std::hex << (int)(buffer[0] & 0xF0) << std::dec << ")";
-        }
-    }
-    
-    // Send DISCONNECT
-    if (m_sockfd >= 0)
-    {
-        uint8_t disconnectPacket[] = {0xE0, 0x00};
-        send(m_sockfd, disconnectPacket, sizeof(disconnectPacket), 0);
-        close(m_sockfd);
-        m_sockfd = -1;
-    }
 }
 
 void MqttObjectReceiver::parseDetectionMessage(const std::string& message)
@@ -322,18 +160,6 @@ void MqttObjectReceiver::parseDetectionMessage(const std::string& message)
         }
         
         auto obj = data.object_items();
-        
-        // Expect format:
-        // {
-        //   "detections": [
-        //     {
-        //       "label": "person",
-        //       "confidence": 0.95,
-        //       "bbox": [x, y, width, height],  // normalized 0-1
-        //       "trackId": 1
-        //     }
-        //   ]
-        // }
         
         if (obj.count("detections") == 0 || !obj["detections"].is_array())
         {
@@ -376,15 +202,11 @@ void MqttObjectReceiver::parseDetectionMessage(const std::string& message)
             }
         }
         
-        // Update detected objects with timestamp
+        // Store objects in queue (will be consumed by next getAndClearDetectedObjects call)
         {
             std::lock_guard<std::mutex> lock(m_objectsMutex);
             m_detectedObjects = newObjects;
             
-            // Update timestamp
-            m_lastMessageTimeUs = std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count();
-                
             // Mark that we've received at least one MQTT message
             m_hasReceivedData.store(true);
         }

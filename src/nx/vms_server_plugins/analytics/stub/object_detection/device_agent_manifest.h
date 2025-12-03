@@ -12,6 +12,32 @@ namespace object_detection {
 
 static const std::string kDeviceAgentManifest = /*suppress newline*/ 1 + (const char*) R"json(
 {
+    "typeLibrary":
+    {
+        "objectTypes":
+        [
+            {
+                "id": "nx.base.SafetyVest",
+                "name": "Safety Vest",
+                "attributes": []
+            },
+            {
+                "id": "nx.base.Forklift",
+                "name": "Forklift",
+                "attributes": []
+            },
+            {
+                "id": "nx.base.Fire",
+                "name": "Fire",
+                "attributes": []
+            },
+            {
+                "id": "nx.base.Smoke",
+                "name": "Smoke",
+                "attributes": []
+            }
+        ]
+    },
     "supportedTypes":
     [
         {
@@ -327,6 +353,26 @@ static const std::string kDeviceAgentManifest = /*suppress newline*/ 1 + (const 
                 "Size",
                 "Color"
             ]
+        },
+        {
+            "objectTypeId": "nx.base.Helmet",
+            "attributes": []
+        },
+        {
+            "objectTypeId": "nx.base.SafetyVest",
+            "attributes": []
+        },
+        {
+            "objectTypeId": "nx.base.Forklift",
+            "attributes": []
+        },
+        {
+            "objectTypeId": "nx.base.Fire",
+            "attributes": []
+        },
+        {
+            "objectTypeId": "nx.base.Smoke",
+            "attributes": []
         }
     ]
 }

@@ -7,6 +7,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <mqtt/async_client.h>
 
 namespace nx {
 namespace vms_server_plugins {
@@ -39,40 +40,46 @@ public:
     void stop();
 
     /**
-     * Get detected objects (thread-safe)
-     * Returns empty if data is too old (>2 seconds)
-     * @return Current list of detected objects
+     * Get and consume detected objects (thread-safe)
+     * Returns objects from queue and clears the queue immediately
+     * @return Current list of detected objects (will be empty after call)
      */
-    std::vector<DetectedObject> getDetectedObjects();
+    std::vector<DetectedObject> getAndClearDetectedObjects();
     
     /**
      * Check if we ever received any MQTT message
      * @return true if at least one message was received
      */
     bool hasReceivedData() const;
-    
-    void clearObjects();
 
 private:
-    void workerThread();
-    bool connectToBroker();
-    void receiveMessages();
+    class Callback : public virtual mqtt::callback
+    {
+    public:
+        explicit Callback(MqttObjectReceiver* receiver) : m_receiver(receiver) {}
+        
+        void connection_lost(const std::string& cause) override;
+        void message_arrived(mqtt::const_message_ptr msg) override;
+        
+    private:
+        MqttObjectReceiver* m_receiver;
+    };
+    
     void parseDetectionMessage(const std::string& message);
+    void reconnect();
 
 private:
     std::string m_broker;
     int m_port;
     std::string m_topic;
     
-    std::atomic<bool> m_running{false};
-    std::thread m_thread;
-    
     std::mutex m_objectsMutex;
-    std::vector<DetectedObject> m_detectedObjects;
-    int64_t m_lastMessageTimeUs = 0;  // Timestamp of last received message
+    std::vector<DetectedObject> m_detectedObjects;  // Queue of objects to be consumed
     std::atomic<bool> m_hasReceivedData{false}; // Track if we've ever received MQTT data
     
-    int m_sockfd = -1;
+    std::shared_ptr<mqtt::async_client> m_client;
+    std::shared_ptr<Callback> m_callback;
+    mqtt::connect_options m_connOpts;
 };
 
 } // namespace object_detection
