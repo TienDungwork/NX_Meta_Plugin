@@ -5,6 +5,8 @@
 #include <set>
 #include <thread>
 #include <memory>
+#include <map>
+#include <unordered_map>
 
 #include <nx/sdk/analytics/helpers/consuming_device_agent.h>
 #include <nx/sdk/helpers/uuid_helper.h>
@@ -53,7 +55,7 @@ private:
     int m_frameIndex = 0;
     int m_timestampShiftMs = 0;
     bool m_sendAttributes = true;
-    std::vector<nx::sdk::Uuid> m_trackIds;
+    std::unordered_map<int, nx::sdk::Uuid> m_trackIds;
     std::set<std::string> m_objectTypeIdsToGenerate;
     
     // MQTT receiver for AI detections

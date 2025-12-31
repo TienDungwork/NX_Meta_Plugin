@@ -94,7 +94,7 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
             // USE MQTT DETECTIONS
             std::lock_guard<std::mutex> lock(m_mutex);
             
-            NX_PRINT << "Using MQTT detections: " << mqttDetections.size() << " objects";
+            //NX_PRINT << "Using MQTT detections: " << mqttDetections.size() << " objects";
             
             // Store objects in vector to prevent destruction before addItem
             std::vector<Ptr<ObjectMetadata>> mqttObjects;
@@ -116,7 +116,7 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 // All labels use nx.base.{Label} format
                 objectTypeId = "nx.base." + capitalizedLabel;
                 
-                NX_PRINT << "MQTT label '" << label << "' -> object type: " << objectTypeId;
+                //NX_PRINT << "MQTT label '" << label << "' -> object type: " << objectTypeId;
                 
                 // Check if this object type is enabled in settings
                 if (!m_objectTypeIdsToGenerate.empty() && 
@@ -159,12 +159,12 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 metadataPacket->addItem(obj.get());
             }
             
-            NX_PRINT << "Added " << mqttObjects.size() << " MQTT objects to packet";
+            //NX_PRINT << "Added " << mqttObjects.size() << " MQTT objects to packet";
         }
         else
         {
             // MQTT is active but sent empty detections - show nothing
-            NX_PRINT << "MQTT active but empty detections - showing nothing";
+            //NX_PRINT << "MQTT active but empty detections - showing nothing";
             // Don't add any items to metadataPacket
         }
     }
@@ -189,8 +189,8 @@ DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
     
     std::string topic = "vms/ai/detections/" + cameraId;
     
-    NX_PRINT << "Camera ID: " << cameraId;
-    NX_PRINT << "MQTT Topic: " << topic;
+    //NX_PRINT << "Camera ID: " << cameraId;
+    //NX_PRINT << "MQTT Topic: " << topic;
     
     // Initialize MQTT receiver to get AI detections for this specific camera
     m_mqttReceiver = std::make_unique<MqttObjectReceiver>("192.168.1.215", 1883, topic);
@@ -213,8 +213,10 @@ std::string DeviceAgent::manifestString() const
 bool DeviceAgent::pushCompressedVideoFrame(const ICompressedVideoPacket* videoFrame)
 {
     ++m_frameIndex;
-    if ((m_frameIndex % kTrackLength) == 0)
+    if (m_trackIds.size() > 100)
+    {
         m_trackIds.clear();
+    }
 
     Ptr<IMetadataPacket> objectMetadataPacket = generateObjectMetadataPacket(
         videoFrame->timestampUs() + m_timestampShiftMs * 1000);
@@ -245,7 +247,7 @@ nx::sdk::Result<const nx::sdk::ISettingsResponse*> DeviceAgent::settingsReceived
         {
             std::string objectType = key.substr(kObjectTypeGenerationSettingPrefix.size());
             m_objectTypeIdsToGenerate.insert(objectType);
-            NX_PRINT << "Enabled object type: " << objectType;
+            //NX_PRINT << "Enabled object type: " << objectType;
         }
         else if (key == kSendAttributesSetting)
             m_sendAttributes = toBool(value);
@@ -253,17 +255,24 @@ nx::sdk::Result<const nx::sdk::ISettingsResponse*> DeviceAgent::settingsReceived
             m_timestampShiftMs = std::stoi(value);
     }
     
-    NX_PRINT << "Total enabled object types: " << m_objectTypeIdsToGenerate.size();
+    //NX_PRINT << "Total enabled object types: " << m_objectTypeIdsToGenerate.size();
 
     return nullptr;
 }
 
 Uuid DeviceAgent::trackIdByTrackIndex(int trackIndex)
 {
-    while (trackIndex >= m_trackIds.size())
-        m_trackIds.push_back(UuidHelper::randomUuid());
-
-    return m_trackIds[trackIndex];
+    // Use map to avoid creating thousands of unused UUIDs
+    auto it = m_trackIds.find(trackIndex);
+    if (it != m_trackIds.end())
+    {
+        return it->second;
+    }
+    
+    // Create new UUID for this track index
+    Uuid newUuid = UuidHelper::randomUuid();
+    m_trackIds[trackIndex] = newUuid;
+    return newUuid;
 }
 
 } // namespace object_detection
