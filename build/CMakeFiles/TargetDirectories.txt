@@ -1,7 +1,0 @@
-/home/atin/develop/plugin/NX_Meta_Plugin/build/CMakeFiles/nx_sdk.dir
-/home/atin/develop/plugin/NX_Meta_Plugin/build/CMakeFiles/stub_analytics_plugin.dir
-/home/atin/develop/plugin/NX_Meta_Plugin/build/CMakeFiles/edit_cache.dir
-/home/atin/develop/plugin/NX_Meta_Plugin/build/CMakeFiles/rebuild_cache.dir
-/home/atin/develop/plugin/NX_Meta_Plugin/build/nx_kit/CMakeFiles/nx_kit.dir
-/home/atin/develop/plugin/NX_Meta_Plugin/build/nx_kit/CMakeFiles/edit_cache.dir
-/home/atin/develop/plugin/NX_Meta_Plugin/build/nx_kit/CMakeFiles/rebuild_cache.dir
