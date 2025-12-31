@@ -24,6 +24,7 @@ struct DetectedObject
     float width;                // normalized 0-1
     float height;               // normalized 0-1
     int trackId;                // unique ID for tracking
+    std::string name;           // custom name field
 };
 
 class MqttObjectReceiver

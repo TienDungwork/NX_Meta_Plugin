@@ -187,6 +187,9 @@ void MqttObjectReceiver::parseDetectionMessage(const std::string& message)
             if (detObj.count("trackId") > 0 && detObj["trackId"].is_number())
                 detected.trackId = detObj["trackId"].int_value();
             
+            if (detObj.count("name") > 0 && detObj["name"].is_string())
+                detected.name = detObj["name"].string_value();
+            
             if (detObj.count("bbox") > 0 && detObj["bbox"].is_array())
             {
                 auto bbox = detObj["bbox"].array_items();

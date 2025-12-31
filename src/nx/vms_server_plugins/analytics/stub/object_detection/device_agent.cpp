@@ -148,6 +148,14 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                     objectMetadata->addAttribute(makePtr<Attribute>(
                         "confidence",
                         std::to_string(detection.confidence)));
+                    
+                    // Add name attribute if provided
+                    if (!detection.name.empty())
+                    {
+                        objectMetadata->addAttribute(makePtr<Attribute>(
+                            "name",
+                            detection.name));
+                    }
                 }
                 
                 mqttObjects.push_back(std::move(objectMetadata));
