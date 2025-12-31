@@ -1,0 +1,2 @@
+/usr/bin/ar qc libnx_kit.a CMakeFiles/nx_kit.dir/src/nx/kit/utils.cpp.o CMakeFiles/nx_kit.dir/src/nx/kit/debug.cpp.o CMakeFiles/nx_kit.dir/src/nx/kit/ini_config.cpp.o CMakeFiles/nx_kit.dir/src/nx/kit/output_redirector.cpp.o CMakeFiles/nx_kit.dir/src/nx/kit/test.cpp.o CMakeFiles/nx_kit.dir/src/nx/kit/json.cpp.o
+/usr/bin/ranlib libnx_kit.a
