@@ -30,17 +30,17 @@ def send_polygon_request(client):
     request = {"action": "get_polygon", "camera_id": CAMERA_ID}
     try:
         client.publish(MQTT_REQUEST_TOPIC, json.dumps(request))
-        print(f"[{datetime.now()}] 📤 Request sent for camera: {CAMERA_ID}")
+        print(f"[{datetime.now()}] Request sent for camera: {CAMERA_ID}")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print(f"✅ Connected to MQTT")
+        print(f"Connected to MQTT")
         client.subscribe(MQTT_RESPONSE_TOPIC)
         send_polygon_request(client)
     else:
-        print(f"❌ Connection failed: {rc}")
+        print(f"Connection failed: {rc}")
 
 def on_message(client, userdata, msg):
     global current_polygons
@@ -48,15 +48,15 @@ def on_message(client, userdata, msg):
         data = json.loads(msg.payload.decode())
         if data.get('camera_id') != CAMERA_ID:
             return
-        print(f"\n📥 Response received - {len(data.get('polygons', []))} polygon(s)")
+        print(f"\nResponse received - {len(data.get('polygons', []))} polygon(s)")
         with polygons_lock:
             current_polygons = data.get('polygons', [])
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
 
 def on_disconnect(client, userdata, rc):
     if rc != 0:
-        print("⚠️ MQTT disconnected")
+        print("MQTT disconnected")
 
 def mqtt_thread():
     global mqtt_client
@@ -68,7 +68,7 @@ def mqtt_thread():
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         mqtt_client.loop_forever()
     except Exception as e:
-        print(f"❌ MQTT Error: {e}")
+        print(f"MQTT Error: {e}")
 
 def polygon_request_thread():
     global mqtt_client
@@ -105,7 +105,7 @@ def draw_polygons_on_frame(frame, polygons):
 def main():
     global frame_count
     print("="*80)
-    print("🎨 POLYGON VISUALIZER - Request/Response Mode")
+    print("POLYGON VISUALIZER - Request/Response Mode")
     print(f"Camera: {CAMERA_ID}")
     print(f"Request interval: {POLYGON_REQUEST_INTERVAL}s")
     print("="*80)
@@ -116,10 +116,10 @@ def main():
     time.sleep(3)
     cap = cv2.VideoCapture(RTSP_URL)
     if not cap.isOpened():
-        print("❌ Cannot connect to RTSP")
+        print("Cannot connect to RTSP")
         return
     
-    print("✅ RTSP connected")
+    print("RTSP connected")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"Resolution: {width}x{height}\n")
@@ -148,15 +148,15 @@ def main():
             if has_polygons and time.time() - last_save >= 5:
                 filename = f"polygon_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
                 cv2.imwrite(filename, frame)
-                print(f"📸 Saved: {filename}")
+                print(f"Saved: {filename}")
                 last_save = time.time()
             
             time.sleep(0.03)
     except KeyboardInterrupt:
-        print("\n👋 Stopping...")
+        print("\nStopping...")
     
     cap.release()
-    print("✅ Done!")
+    print("Done!")
 
 if __name__ == "__main__":
     main()
