@@ -9,6 +9,7 @@
 
 #include "stub_analytics_plugin_roi_ini.h"
 #include "mqtt_publisher.h"
+#include "mqtt_sub.h"
 
 #undef NX_PRINT_PREFIX
 #define NX_PRINT_PREFIX (this->logUtils.printPrefix)
@@ -26,16 +27,33 @@ using namespace nx::sdk::analytics;
 DeviceAgent::DeviceAgent(Engine* engine, const nx::sdk::IDeviceInfo* deviceInfo):
     ConsumingDeviceAgent(deviceInfo, NX_DEBUG_ENABLE_OUTPUT, engine->plugin()->instanceId()),
     m_engine(engine),
-    m_mqttPublisher(new MqttPublisher())
+    m_cameraId(deviceInfo->id()),
+    m_mqttPublisher(new MqttPublisher()),
+    m_mqttSubscriber(new MqttSubscriber(m_cameraId))  // Use camera ID as MQTT client ID
 {
     NX_PRINT << "ROI DeviceAgent created with MQTT support";
-    // Start MQTT publisher
+    NX_PRINT << "Camera ID: " << m_cameraId;
+    
+    // Start MQTT subscriber
+    m_mqttSubscriber->setRequestCallback(
+        [this](const std::string& cameraId, const std::string& action) {
+            this->handleMqttRequest(cameraId, action);
+        }
+    );
+    m_mqttSubscriber->start();
+    
+    // Start MQTT publisher (để dùng cho response)
     m_mqttPublisher->start();
 }
 
 DeviceAgent::~DeviceAgent()
 {
     NX_PRINT << "ROI DeviceAgent destroyed";
+    if (m_mqttSubscriber)
+    {
+        m_mqttSubscriber->stop();
+        m_mqttSubscriber.reset();
+    }
     if (m_mqttPublisher)
     {
         m_mqttPublisher->stop();
@@ -67,80 +85,75 @@ Result<const ISettingsResponse*> DeviceAgent::settingsReceived()
     
     NX_PRINT << "Total settings received: " << allSettings.size();
     
-    // Publish
-    if (m_mqttPublisher)
+    // Parse và LƯU polygon
+    nx::kit::Json::array drawnPolygons;
+    
+    std::vector<std::string> targetPolygons = {"excludedArea.figure"};
+    
+    for (const std::string& polygonName : targetPolygons)
     {
-        nx::kit::Json::array drawnPolygons;
-        
-        std::vector<std::string> targetPolygons = {"excludedArea.figure"};
-        
-        for (const std::string& polygonName : targetPolygons)
+        auto it = allSettings.find(polygonName);
+        if (it != allSettings.end() && !it->second.empty())
         {
-            auto it = allSettings.find(polygonName);
-            if (it != allSettings.end() && !it->second.empty())
+            std::string parseError;
+            nx::kit::Json parsedValue = nx::kit::Json::parse(it->second, parseError);
+            
+            if (parseError.empty() && parsedValue.is_object())
             {
-                std::string parseError;
-                nx::kit::Json parsedValue = nx::kit::Json::parse(it->second, parseError);
+                auto obj = parsedValue.object_items();
                 
-                if (parseError.empty() && parsedValue.is_object())
+                // Kiểm tra figure và points
+                if (obj.count("figure") > 0 && !obj["figure"].is_null())
                 {
-                    auto obj = parsedValue.object_items();
-                    
-                    // Kiểm tra figure và points
-                    if (obj.count("figure") > 0 && !obj["figure"].is_null())
+                    auto figure = obj["figure"];
+                    if (figure.is_object())
                     {
-                        auto figure = obj["figure"];
-                        if (figure.is_object())
+                        auto figureObj = figure.object_items();
+                        if (figureObj.count("points") > 0 && 
+                            figureObj["points"].is_array() &&
+                            !figureObj["points"].array_items().empty())
                         {
-                            auto figureObj = figure.object_items();
-                            if (figureObj.count("points") > 0 && 
-                                figureObj["points"].is_array() &&
-                                !figureObj["points"].array_items().empty())
-                            {
-                                // Polygon
-                                nx::kit::Json::object polygonInfo;
-                                polygonInfo["name"] = polygonName;
-                                polygonInfo["points"] = figureObj["points"];
-                                polygonInfo["color"] = figureObj.count("color") > 0 
-                                    ? figureObj["color"] : nx::kit::Json("#ffffff");
-                                polygonInfo["label"] = obj.count("label") > 0 
-                                    ? obj["label"] : nx::kit::Json("");
-                                polygonInfo["showOnCamera"] = obj.count("showOnCamera") > 0 
-                                    ? obj["showOnCamera"] : nx::kit::Json(false);
-                                
-                                drawnPolygons.push_back(polygonInfo);
-                                
-                                NX_PRINT << "  Found drawn polygon: " << polygonName 
-                                         << " with " << figureObj["points"].array_items().size() 
-                                         << " points";
-                            }
+                            // Polygon
+                            nx::kit::Json::object polygonInfo;
+                            polygonInfo["name"] = polygonName;
+                            polygonInfo["points"] = figureObj["points"];
+                            polygonInfo["color"] = figureObj.count("color") > 0 
+                                ? figureObj["color"] : nx::kit::Json("#ffffff");
+                            polygonInfo["label"] = obj.count("label") > 0 
+                                ? obj["label"] : nx::kit::Json("");
+                            polygonInfo["showOnCamera"] = obj.count("showOnCamera") > 0 
+                                ? obj["showOnCamera"] : nx::kit::Json(false);
+                            
+                            drawnPolygons.push_back(polygonInfo);
+                            
+                            NX_PRINT << "  Found drawn polygon: " << polygonName 
+                                     << " with " << figureObj["points"].array_items().size() 
+                                     << " points";
                         }
                     }
                 }
             }
         }
+    }
+    
+    // LƯU polygon data vào memory (KHÔNG PUBLISH)
+    if (!drawnPolygons.empty())
+    {
+        nx::kit::Json::object polygonData;
+        polygonData["camera_id"] = m_cameraId;
+        polygonData["timestamp"] = std::to_string(
+            std::chrono::system_clock::now().time_since_epoch().count());
+        polygonData["polygons"] = drawnPolygons;
         
-        if (!drawnPolygons.empty())
-        {
-            nx::kit::Json::object mqttPayload;
-            mqttPayload["event"] = "polygons_updated";
-            mqttPayload["timestamp"] = std::to_string(
-                std::chrono::system_clock::now().time_since_epoch().count());
-            mqttPayload["polygons"] = drawnPolygons;
-            
-            std::string mqttMessage = nx::kit::Json(mqttPayload).dump();
-            
-            NX_PRINT << "Publishing " << drawnPolygons.size() << " polygon(s) to MQTT";
-            m_mqttPublisher->publishPolygon(mqttMessage);
-        }
-        else
-        {
-            NX_PRINT << "No drawn polygons (testPolygon/excludedArea) - skipping MQTT";
-        }
+        m_storedPolygonData = nx::kit::Json(polygonData).dump();
+        
+        NX_PRINT << "Stored " << drawnPolygons.size() << " polygon(s) for camera: " << m_cameraId;
+        NX_PRINT << "Waiting for MQTT request to send data...";
     }
     else
     {
-        NX_PRINT << "WARNING: MQTT Publisher not initialized!";
+        m_storedPolygonData.clear();
+        NX_PRINT << "No drawn polygons - cleared stored data";
     }
     
     NX_PRINT << "========================================";
@@ -166,6 +179,59 @@ void DeviceAgent::getPluginSideSettings(
 
     response->setValue("testPolygon", nx::kit::Json(jsonResult).dump());
     *outResult = response;
+}
+
+std::string DeviceAgent::getStoredPolygonData() const
+{
+    return m_storedPolygonData;
+}
+
+void DeviceAgent::handleMqttRequest(const std::string& cameraId, const std::string& action)
+{
+    NX_PRINT << "========================================";
+    NX_PRINT << "MQTT Request received:";
+    NX_PRINT << "  Camera ID: " << cameraId;
+    NX_PRINT << "  Action: " << action;
+    NX_PRINT << "  My Camera ID: " << m_cameraId;
+    
+    // Kiểm tra xem request có phải cho camera này không
+    if (cameraId != m_cameraId)
+    {
+        NX_PRINT << "Request not for this camera - ignoring";
+        NX_PRINT << "========================================";
+        return;
+    }
+    
+    if (action != "get_polygon")
+    {
+        NX_PRINT << "Unknown action: " << action;
+        NX_PRINT << "========================================";
+        return;
+    }
+    
+    // Response với stored polygon data
+    if (!m_storedPolygonData.empty())
+    {
+        NX_PRINT << "Sending stored polygon data via MQTT subscriber response";
+        m_mqttSubscriber->publishResponse(m_storedPolygonData);
+        NX_PRINT << "Response sent successfully";
+    }
+    else
+    {
+        // Gửi empty response
+        nx::kit::Json::object emptyResponse;
+        emptyResponse["camera_id"] = m_cameraId;
+        emptyResponse["timestamp"] = std::to_string(
+            std::chrono::system_clock::now().time_since_epoch().count());
+        emptyResponse["polygons"] = nx::kit::Json::array{};
+        
+        std::string emptyMessage = nx::kit::Json(emptyResponse).dump();
+        m_mqttSubscriber->publishResponse(emptyMessage);
+        
+        NX_PRINT << "No polygon data stored - sent empty response";
+    }
+    
+    NX_PRINT << "========================================";
 }
 
 } // namespace roi
