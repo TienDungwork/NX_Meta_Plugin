@@ -8,8 +8,7 @@
 
 #include "engine.h"
 #include "stub_analytics_plugin_roi_ini.h"
-#include "mqtt_publisher.h"
-#include "mqtt_sub.h"
+#include "http_server.h"
 
 namespace nx {
 namespace vms_server_plugins {
@@ -40,15 +39,16 @@ protected:
     virtual nx::sdk::Result<const nx::sdk::ISettingsResponse*> settingsReceived() override;
 
 private:
-    void handleMqttRequest(const std::string& cameraId, const std::string& action);
+    std::string handleHttpRequest(const std::string& cameraId);
 
 private:
     Engine* const m_engine;
     std::string m_cameraId;
     std::string m_storedPolygonData;
     
-    std::unique_ptr<MqttPublisher> m_mqttPublisher;
-    std::unique_ptr<MqttSubscriber> m_mqttSubscriber;
+    static std::shared_ptr<HttpServer> m_httpServer;
+    static std::mutex m_httpServerMutex;
+    static std::map<std::string, DeviceAgent*> m_deviceAgents;
 };
 
 } // namespace roi

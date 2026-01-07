@@ -8,8 +8,8 @@
 #include <nx/sdk/helpers/settings_response.h>
 
 #include "stub_analytics_plugin_roi_ini.h"
-#include "mqtt_publisher.h"
-#include "mqtt_sub.h"
+#include "http_server.h"
+#include <mutex>
 
 #undef NX_PRINT_PREFIX
 #define NX_PRINT_PREFIX (this->logUtils.printPrefix)
@@ -24,40 +24,66 @@ namespace roi {
 using namespace nx::sdk;
 using namespace nx::sdk::analytics;
 
+// Static member initialization
+std::shared_ptr<HttpServer> DeviceAgent::m_httpServer = nullptr;
+std::mutex DeviceAgent::m_httpServerMutex;
+std::map<std::string, DeviceAgent*> DeviceAgent::m_deviceAgents;
+
 DeviceAgent::DeviceAgent(Engine* engine, const nx::sdk::IDeviceInfo* deviceInfo):
     ConsumingDeviceAgent(deviceInfo, NX_DEBUG_ENABLE_OUTPUT, engine->plugin()->instanceId()),
     m_engine(engine),
-    m_cameraId(deviceInfo->id()),
-    m_mqttPublisher(new MqttPublisher()),
-    m_mqttSubscriber(new MqttSubscriber(m_cameraId))  // Use camera ID as MQTT client ID
+    m_cameraId(deviceInfo->id())
 {
-    NX_PRINT << "ROI DeviceAgent created with MQTT support";
+    NX_PRINT << "ROI DeviceAgent created with HTTP support";
     NX_PRINT << "Camera ID: " << m_cameraId;
     
-    // Start MQTT subscriber
-    m_mqttSubscriber->setRequestCallback(
-        [this](const std::string& cameraId, const std::string& action) {
-            this->handleMqttRequest(cameraId, action);
-        }
-    );
-    m_mqttSubscriber->start();
+    std::lock_guard<std::mutex> lock(m_httpServerMutex);
     
-    // Start MQTT publisher (để dùng cho response)
-    m_mqttPublisher->start();
+    // Register this device agent
+    m_deviceAgents[m_cameraId] = this;
+    
+    // Create HTTP server once (shared by all cameras)
+    if (!m_httpServer)
+    {
+        m_httpServer = std::make_shared<HttpServer>(8090);
+        
+        // Set callback to route requests to correct device agent
+        m_httpServer->setRequestCallback(
+            [](const std::string& cameraId) -> std::string {
+                std::lock_guard<std::mutex> lock(m_httpServerMutex);
+                auto it = m_deviceAgents.find(cameraId);
+                if (it != m_deviceAgents.end())
+                {
+                    return it->second->handleHttpRequest(cameraId);
+                }
+                
+                nx::kit::Json::object errorResponse;
+                errorResponse["error"] = "Camera not found";
+                errorResponse["camera_id"] = cameraId;
+                return nx::kit::Json(errorResponse).dump();
+            }
+        );
+        
+        m_httpServer->start();
+        NX_PRINT << "HTTP Server started on port 8090";
+    }
 }
 
 DeviceAgent::~DeviceAgent()
 {
     NX_PRINT << "ROI DeviceAgent destroyed";
-    if (m_mqttSubscriber)
+    
+    std::lock_guard<std::mutex> lock(m_httpServerMutex);
+    
+    // Unregister this device agent
+    m_deviceAgents.erase(m_cameraId);
+    
+    // Stop HTTP server when last device agent is destroyed
+    if (m_deviceAgents.empty() && m_httpServer)
     {
-        m_mqttSubscriber->stop();
-        m_mqttSubscriber.reset();
-    }
-    if (m_mqttPublisher)
-    {
-        m_mqttPublisher->stop();
-        m_mqttPublisher.reset();
+        m_httpServer->stop();
+        m_httpServer.reset();
+        NX_PRINT << "HTTP Server stopped";
     }
 }
 
@@ -186,12 +212,11 @@ std::string DeviceAgent::getStoredPolygonData() const
     return m_storedPolygonData;
 }
 
-void DeviceAgent::handleMqttRequest(const std::string& cameraId, const std::string& action)
+std::string DeviceAgent::handleHttpRequest(const std::string& cameraId)
 {
     NX_PRINT << "========================================";
-    NX_PRINT << "MQTT Request received:";
+    NX_PRINT << "HTTP Request received:";
     NX_PRINT << "  Camera ID: " << cameraId;
-    NX_PRINT << "  Action: " << action;
     NX_PRINT << "  My Camera ID: " << m_cameraId;
     
     // Kiểm tra xem request có phải cho camera này không
@@ -199,22 +224,21 @@ void DeviceAgent::handleMqttRequest(const std::string& cameraId, const std::stri
     {
         NX_PRINT << "Request not for this camera - ignoring";
         NX_PRINT << "========================================";
-        return;
-    }
-    
-    if (action != "get_polygon")
-    {
-        NX_PRINT << "Unknown action: " << action;
-        NX_PRINT << "========================================";
-        return;
+        
+        nx::kit::Json::object errorResponse;
+        errorResponse["error"] = "Camera ID mismatch";
+        errorResponse["requested"] = cameraId;
+        errorResponse["actual"] = m_cameraId;
+        return nx::kit::Json(errorResponse).dump();
     }
     
     // Response với stored polygon data
     if (!m_storedPolygonData.empty())
     {
-        NX_PRINT << "Sending stored polygon data via MQTT subscriber response";
-        m_mqttSubscriber->publishResponse(m_storedPolygonData);
+        NX_PRINT << "Sending stored polygon data via HTTP response";
         NX_PRINT << "Response sent successfully";
+        NX_PRINT << "========================================";
+        return m_storedPolygonData;
     }
     else
     {
@@ -225,13 +249,10 @@ void DeviceAgent::handleMqttRequest(const std::string& cameraId, const std::stri
             std::chrono::system_clock::now().time_since_epoch().count());
         emptyResponse["polygons"] = nx::kit::Json::array{};
         
-        std::string emptyMessage = nx::kit::Json(emptyResponse).dump();
-        m_mqttSubscriber->publishResponse(emptyMessage);
-        
-        NX_PRINT << "No polygon data stored - sent empty response";
+        NX_PRINT << "No polygon data stored - sending empty response";
+        NX_PRINT << "========================================";
+        return nx::kit::Json(emptyResponse).dump();
     }
-    
-    NX_PRINT << "========================================";
 }
 
 } // namespace roi
