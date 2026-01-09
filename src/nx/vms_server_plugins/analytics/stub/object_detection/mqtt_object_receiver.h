@@ -25,6 +25,7 @@ struct DetectedObject
     float height;               // normalized 0-1
     int trackId;                // unique ID for tracking
     std::string name;           // custom name field
+    std::string color;          // bbox color: Magenta, Blue, Green, Yellow, Cyan, Purple, Orange, Red, White
 };
 
 class MqttObjectReceiver

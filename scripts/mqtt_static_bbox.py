@@ -4,7 +4,7 @@ import time
 
 BROKER = "192.168.1.215"
 PORT = 1883
-CAMERA_ID = "742b49df-51af-29e2-75e5-d179f1b2d74d"
+CAMERA_ID = "7e1069d3-593b-bfd2-3271-bbe924e03da2"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
 
 BBOX_WIDTH = 0.11
@@ -53,7 +53,7 @@ def send_static_detections():
                             BBOX_WIDTH,     
                             BBOX_HEIGHT     
                         ],
-                        "trackId": 1
+                        "trackId": 3
                     },
                     {
                         "label": "car",
@@ -64,7 +64,7 @@ def send_static_detections():
                             BBOX_WIDTH,     
                             BBOX_HEIGHT    
                         ],
-                        "trackId": 2
+                        "trackId": 3
                     }
                 ]
             }

@@ -140,7 +140,15 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 objectMetadata->setTrackId(trackIdByTrackIndex(detection.trackId - 1));
                 
                 // Set confidence like fake generation (1.0 default)
-                objectMetadata->setConfidence(detection.confidence);
+                objectMetadata->setConfidence(detection.confidence);                
+                // Valid colors: Magenta, Blue, Green, Yellow, Cyan, Purple, Orange, Red, White
+                if (!detection.color.empty())
+                {
+                    objectMetadata->addAttribute(makePtr<Attribute>(
+                        Attribute::Type::string,
+                        "nx.sys.color",
+                        detection.color));
+                }
                 
                 // Add attributes if enabled (like fake generation)
                 if (m_sendAttributes)
