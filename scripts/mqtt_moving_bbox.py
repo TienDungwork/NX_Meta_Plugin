@@ -65,7 +65,7 @@ def send_moving_detections():
             detections = {
                 "detections": [
                     {
-                        "label": "smoke",
+                        "label": "face",
                         "confidence": 0.95,
                         "bbox": [
                             0.15,           # x: left side
@@ -76,7 +76,7 @@ def send_moving_detections():
                         "trackId": 1
                     },
                     {
-                        "label": "Fire",
+                        "label": "Face",
                         "confidence": 0.90,
                         "bbox": [
                             0.70,           # x: right side

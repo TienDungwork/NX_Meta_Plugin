@@ -45,7 +45,7 @@ def send_static_detections():
             detections = {
                 "detections": [
                     {
-                        "label": "person",
+                        "label": "Face",
                         "confidence": 0.9,
                         "bbox": [
                             PERSON_X,       
@@ -56,7 +56,7 @@ def send_static_detections():
                         "trackId": 3
                     },
                     {
-                        "label": "car",
+                        "label": "face",
                         "confidence": 0.90,
                         "bbox": [
                             CAR_X,          

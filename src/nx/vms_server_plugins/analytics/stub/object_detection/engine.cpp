@@ -17,11 +17,7 @@ using namespace nx::sdk;
 using namespace nx::sdk::analytics;
 
 static const std::set<std::string> kObjectTypeIdsGeneratedByDefault = {
-    "nx.base.Bike",
-    "nx.base.Bus",
-    "nx.base.LicensePlate",
-    "nx.base.Face",
-    "nx.base.Person"
+    "nx.base.Face"
 };
 
 Engine::Engine(): nx::sdk::analytics::Engine(ini().enableOutput)
@@ -51,7 +47,7 @@ std::string Engine::manifestString() const
         {"name", DeviceAgent::kTimeShiftSetting},
         {"caption", "Timestamp shift"},
         {"description", "Metadata timestamp shift in milliseconds"},
-        {"defaultValue", 0}
+        {"defaultValue", -150}
     };
     generationSettings.push_back(std::move(timeShiftSetting));
 

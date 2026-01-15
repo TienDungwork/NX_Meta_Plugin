@@ -25,11 +25,11 @@ std::string Plugin::manifestString() const
 {
     const static std::string manifest = /*suppress newline*/ 1 + (const char*) R"json(
     {
-        "id": "nx.stub.object_detection",
-        "name": "Stub, Object Detection",
-        "description": "An example Plugin for demonstrating the Base Library of Taxonomy and providing examples of object metadata generation.",
-        "version": "1.0.0",
-        "vendor": "Plugin vendor",
+        "id": "nx.atin.object_detection",
+        "name": "Face Recognition",
+        "description": "AI-powered object detection plugin for real-time face and object recognition.",
+        "version": "2.1.0",
+        "vendor": "ATIN",
         "isLicenseRequired": %s
     }
     )json";

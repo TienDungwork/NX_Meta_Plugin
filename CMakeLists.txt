@@ -1,7 +1,7 @@
 ## Copyright 2018-present Network Optix, Inc. Licensed under MPL 2.0: www.mozilla.org/MPL/2.0/
 
 cmake_minimum_required(VERSION 3.14)
-project(stub_analytics_plugin)
+project(atin_analytics_plugin)
 
 set(metadataSdkDir "" CACHE PATH "Path to unpacked VMS Metadata SDK zip.")
 if(metadataSdkDir STREQUAL "")
@@ -63,21 +63,21 @@ target_link_libraries(nx_sdk PRIVATE nx_kit)
 target_compile_definitions(nx_sdk PRIVATE NX_PLUGIN_API=${API_EXPORT_MACRO}) #< for nxLibContext()
 
 #--------------------------------------------------------------------------------------------------
-# Define stub_analytics_plugin lib, dynamic, depends on nx_kit and nx_sdk.
+# Define atin_analytics_plugin lib, dynamic, depends on nx_kit and nx_sdk.
 
-set(STUB_ANALYTICS_PLUGIN_SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
-file(GLOB_RECURSE STUB_ANALYTICS_PLUGIN_SRC CONFIGURE_DEPENDS ${STUB_ANALYTICS_PLUGIN_SRC_DIR}/*)
+set(ATIN_ANALYTICS_PLUGIN_SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
+file(GLOB_RECURSE ATIN_ANALYTICS_PLUGIN_SRC CONFIGURE_DEPENDS ${ATIN_ANALYTICS_PLUGIN_SRC_DIR}/*)
 
-add_library(stub_analytics_plugin SHARED ${STUB_ANALYTICS_PLUGIN_SRC})
-target_include_directories(stub_analytics_plugin PRIVATE ${STUB_ANALYTICS_PLUGIN_SRC_DIR})
-target_link_libraries(stub_analytics_plugin PRIVATE nx_kit nx_sdk paho-mqttpp3 paho-mqtt3as)
+add_library(atin_analytics_plugin SHARED ${ATIN_ANALYTICS_PLUGIN_SRC})
+target_include_directories(atin_analytics_plugin PRIVATE ${ATIN_ANALYTICS_PLUGIN_SRC_DIR})
+target_link_libraries(atin_analytics_plugin PRIVATE nx_kit nx_sdk paho-mqttpp3 paho-mqtt3as)
 
-target_compile_definitions(stub_analytics_plugin
+target_compile_definitions(atin_analytics_plugin
     PRIVATE NX_PLUGIN_API=${API_EXPORT_MACRO}
 )
 
 if(NOT WIN32)
-    target_link_libraries(stub_analytics_plugin PRIVATE pthread)
+    target_link_libraries(atin_analytics_plugin PRIVATE pthread)
 endif()
 
 #--------------------------------------------------------------------------------------------------

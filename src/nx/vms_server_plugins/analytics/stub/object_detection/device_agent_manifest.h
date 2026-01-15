@@ -14,150 +14,18 @@ static const std::string kDeviceAgentManifest = /*suppress newline*/ 1 + (const 
 {
     "typeLibrary":
     {
-        "objectTypes":
-        [
-            {
-                "id": "nx.base.SafetyVest",
-                "name": "Safety Vest",
-                "attributes": []
-            },
-            {
-                "id": "nx.base.Forklift",
-                "name": "Forklift",
-                "attributes": []
-            },
-            {
-                "id": "nx.base.Fire",
-                "name": "Fire",
-                "attributes": []
-            },
-            {
-                "id": "nx.base.Smoke",
-                "name": "Smoke",
-                "attributes": []
-            }
-        ]
+        "objectTypes": []
     },
     "supportedTypes":
     [
-        {
-            "objectTypeId": "nx.base.Vehicle",
-            "attributes":
-            [
-                "Color",
-                "Speed",
-                "Brand",
-                "Model",
-                "Size",
-                "License Plate",
-                "License Plate.Number",
-                "License Plate.Country",
-                "License Plate.State/Province",
-                "License Plate.Size",
-                "License Plate.Color",
-                "Driver buckled up",
-                "Lane"
-            ]
-        },
-        {
-            "objectTypeId": "nx.base.Person",
-            "attributes":
-            [
-                "Gender",
-                "Race",
-                "Age",
-                "Height",
-                "Activity",
-                "Hat",
-                "Hat.Color",
-                "Hat.Type",
-                "Scarf",
-                "Scarf.Color",
-                "Body Shape",
-                "Top Clothing Color",
-                "Top Clothing Length",
-                "Top Clothing Grain",
-                "Top Clothing Type",
-                "Bottom Clothing Color",
-                "Bottom Clothing Length",
-                "Bottom Clothing Grain",
-                "Bottom Clothing Type",
-                "Gloves",
-                "Gloves.Color",
-                "Shoes",
-                "Shoes.Color",
-                "Shoes.Type",
-                "Name",
-                "Temperature",
-                "Tattoo",
-                "Bag",
-                "Bag.Size",
-                "Bag.Color",
-                "Bag.Type",
-                "Weapon",
-                "Cigarette",
-                "Cigarette.Type",
-                "Mobile Phone",
-                "Mobile Phone.Position",
-                "Cart",
-                "Cart.Type",
-                "Bottle",
-                "Umbrella",
-                "Umbrella.Color",
-                "Umbrella.Open",
-                "Box",
-                "Box.Color",
-                "Box.Lug",
-                "Mask",
-                "Glasses",
-                "Glasses.Type",
-                "Helmet"
-            ]
-        },
         {
             "objectTypeId": "nx.base.Face",
             "attributes":
             [
                 "Gender",
-                "Race",
                 "Age",
-                "Shape",
-                "Length",
                 "Emotion",
-                "Hat",
-                "Hat.Color",
-                "Hat.Type",
-                "Hair Color",
-                "Hair Type",
-                "Eyelid",
-                "Eyebrow Width",
-                "Eyebrow Space",
-                "Eyebrow Color",
-                "Eyes",
-                "Mouth",
-                "Eyes Shape",
-                "Eyes Color",
-                "Nose Length",
-                "Nose Bridge",
-                "Nose Wing",
-                "Nose End",
-                "Facial Hair",
-                "Facial Hair.Type",
-                "Ear Type",
-                "Lip Type",
-                "Chin Type",
-                "Freckles",
-                "Tattoo",
-                "Mole",
-                "Scar",
-                "Temperature",
-                "Name",
-                "Cigarette",
-                "Cigarette.Type",
-                "Mask",
-                "Glasses",
-                "Glasses.Type",
-                "Helmet"
+                "Name"
             ]
         },
         {
