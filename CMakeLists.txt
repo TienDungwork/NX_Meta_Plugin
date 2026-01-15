@@ -70,7 +70,7 @@ file(GLOB_RECURSE STUB_ANALYTICS_PLUGIN_SRC CONFIGURE_DEPENDS ${STUB_ANALYTICS_P
 
 add_library(stub_analytics_plugin SHARED ${STUB_ANALYTICS_PLUGIN_SRC})
 target_include_directories(stub_analytics_plugin PRIVATE ${STUB_ANALYTICS_PLUGIN_SRC_DIR})
-target_link_libraries(stub_analytics_plugin PRIVATE nx_kit nx_sdk)
+target_link_libraries(stub_analytics_plugin PRIVATE nx_kit nx_sdk paho-mqttpp3 paho-mqtt3as)
 
 target_compile_definitions(stub_analytics_plugin
     PRIVATE NX_PLUGIN_API=${API_EXPORT_MACRO}

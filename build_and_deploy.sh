@@ -1,5 +1,5 @@
 #!/bin/bash
-PLUGIN_DIR="/home/atin/develop/plugin/NX_Meta_Plugin"
+PLUGIN_DIR="/home/atin/develop/NX_Meta_Plugin"
 METADATA_SDK="/home/atin/develop/metadata_sdk"
 PLUGIN_INSTALL_DIR="/opt/networkoptix-metavms/mediaserver/bin/plugins"
 PLUGIN_FILE="libstub_analytics_plugin.so"
