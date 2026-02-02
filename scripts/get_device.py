@@ -1,8 +1,9 @@
 import json, requests, urllib3
 
-BASE = "https://103.9.158.149:7001"
+BASE = "https://192.168.1.215:7001"
 USER = "Admin"
-PASS = "Admin@@6789@@"
+
+PASS = "Atin@123#"
 ENDPOINT = "/rest/v4/devices/"
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 r = requests.post(
