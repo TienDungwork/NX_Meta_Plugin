@@ -19,7 +19,7 @@ public:
 
     MqttSubscriber(
         const std::string& clientId,
-        const std::string& broker = "192.168.1.215",
+        const std::string& broker = "103.9.158.149",
         int port = 1883,
         const std::string& requestTopic = "vms/roi/request",
         const std::string& responseTopic = "vms/roi/response");

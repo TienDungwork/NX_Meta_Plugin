@@ -224,11 +224,11 @@ DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
     //NX_PRINT << "MQTT Counter Topic: " << counterTopic;
     
     // Initialize MQTT receiver for AI detections (bbox)
-    m_mqttReceiver = std::make_unique<MqttObjectReceiver>("192.168.1.215", 1883, detectionsTopic);
+    m_mqttReceiver = std::make_unique<MqttObjectReceiver>("103.9.158.149", 1883, detectionsTopic);
     m_mqttReceiver->start();
     
     // Initialize MQTT receiver for people counter (totalCount) - separate topic
-    m_mqttCounterReceiver = std::make_unique<MqttCounterReceiver>("192.168.1.215", 1883, counterTopic);
+    m_mqttCounterReceiver = std::make_unique<MqttCounterReceiver>("103.9.158.149", 1883, counterTopic);
     m_mqttCounterReceiver->start();
 }
 

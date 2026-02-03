@@ -19,7 +19,7 @@ class MqttPublisher
 {
 public:
     MqttPublisher(
-        const std::string& broker = "192.168.1.215",
+        const std::string& broker = "103.9.158.149",
         int port = 1883,
         const std::string& topic = "vms/roi/polygon");
     
