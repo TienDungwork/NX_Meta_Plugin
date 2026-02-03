@@ -7,6 +7,7 @@
 
 #include <nx/sdk/analytics/helpers/object_metadata.h>
 #include <nx/sdk/analytics/helpers/object_metadata_packet.h>
+#include <nx/sdk/analytics/helpers/object_track_best_shot_packet.h>
 
 #include "device_agent_manifest.h"
 #include "object_attributes.h"
@@ -137,7 +138,16 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 objectMetadata->setBoundingBox(boundingBox);
                 
                 // Set track ID from detection (MUST use UUID like fake generation)
-                objectMetadata->setTrackId(trackIdByTrackIndex(detection.trackId - 1));
+                nx::sdk::Uuid trackId = trackIdByTrackIndex(detection.trackId - 1);
+                objectMetadata->setTrackId(trackId);
+                
+                // Mark this track as needing Best Shot for Advanced Object Search
+                // Only if we haven't generated Best Shot for this track yet
+                if (m_trackIdsWithBestShot.find(trackId) == m_trackIdsWithBestShot.end())
+                {
+                    // Store bounding box for Best Shot generation
+                    m_trackIdsNeedingBestShot[trackId] = boundingBox;
+                }
                 
                 // Set confidence like fake generation (1.0 default)
                 objectMetadata->setConfidence(detection.confidence);                
@@ -189,6 +199,9 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
         // NO MQTT CONNECTION - KHÔNG HIỂN THỊ GÌ (fake bbox đã TẮT)
         // Không thêm objects nào vào metadataPacket
     }
+    
+    // Add counter object to display "Số người vào: X"
+    addCounterObject(metadataPacket, frameTimestampUs);
 
     return metadataPacket;
 }
@@ -203,14 +216,20 @@ DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
     if (!cameraId.empty() && cameraId.front() == '{')
         cameraId = cameraId.substr(1, cameraId.length() - 2);
     
-    std::string topic = "vms/ai/detections/" + cameraId;
+    std::string detectionsTopic = "vms/ai/detections/" + cameraId;
+    std::string counterTopic = "vms/ai/counter/" + cameraId;  // Separate topic for counter
     
     //NX_PRINT << "Camera ID: " << cameraId;
-    //NX_PRINT << "MQTT Topic: " << topic;
+    //NX_PRINT << "MQTT Detections Topic: " << detectionsTopic;
+    //NX_PRINT << "MQTT Counter Topic: " << counterTopic;
     
-    // Initialize MQTT receiver to get AI detections for this specific camera
-    m_mqttReceiver = std::make_unique<MqttObjectReceiver>("192.168.1.215", 1883, topic);
+    // Initialize MQTT receiver for AI detections (bbox)
+    m_mqttReceiver = std::make_unique<MqttObjectReceiver>("192.168.1.215", 1883, detectionsTopic);
     m_mqttReceiver->start();
+    
+    // Initialize MQTT receiver for people counter (totalCount) - separate topic
+    m_mqttCounterReceiver = std::make_unique<MqttCounterReceiver>("192.168.1.215", 1883, counterTopic);
+    m_mqttCounterReceiver->start();
 }
 
 DeviceAgent::~DeviceAgent()
@@ -218,6 +237,10 @@ DeviceAgent::~DeviceAgent()
     if (m_mqttReceiver)
     {
         m_mqttReceiver->stop();
+    }
+    if (m_mqttCounterReceiver)
+    {
+        m_mqttCounterReceiver->stop();
     }
 }
 
@@ -234,10 +257,15 @@ bool DeviceAgent::pushCompressedVideoFrame(const ICompressedVideoPacket* videoFr
         m_trackIds.clear();
     }
 
-    Ptr<IMetadataPacket> objectMetadataPacket = generateObjectMetadataPacket(
-        videoFrame->timestampUs() + m_timestampShiftMs * 1000);
-
+    int64_t frameTimestampUs = videoFrame->timestampUs() + m_timestampShiftMs * 1000;
+    
+    Ptr<IMetadataPacket> objectMetadataPacket = generateObjectMetadataPacket(frameTimestampUs);
     pushMetadataPacket(objectMetadataPacket.releasePtr());
+
+    // Generate and push Best Shot packets for Advanced Object Search
+    std::vector<Ptr<IObjectTrackBestShotPacket>> bestShotPackets = generateBestShots(frameTimestampUs);
+    for (Ptr<IObjectTrackBestShotPacket>& bestShotPacket: bestShotPackets)
+        pushMetadataPacket(bestShotPacket.releasePtr());
 
     return true;
 }
@@ -289,6 +317,98 @@ Uuid DeviceAgent::trackIdByTrackIndex(int trackIndex)
     Uuid newUuid = UuidHelper::randomUuid();
     m_trackIds[trackIndex] = newUuid;
     return newUuid;
+}
+
+void DeviceAgent::addCounterObject(Ptr<ObjectMetadataPacket> metadataPacket, int64_t frameTimestampUs)
+{
+    // Get totalCount from separate counter receiver (not from detections receiver)
+    int totalCount = m_mqttCounterReceiver->getTotalCount();
+    bool hasCounterData = m_mqttCounterReceiver->hasReceivedData();
+    
+    // Debug log
+    if (m_frameIndex % 25 == 0)
+    {
+        NX_PRINT << "Counter check: totalCount=" << totalCount 
+                 << ", hasReceivedData=" << (hasCounterData ? "true" : "false");
+    }
+    
+    // Only show counter if we have a valid totalCount from MQTT
+    if (totalCount < 0)
+    {
+        if (m_frameIndex % 25 == 0 && !hasCounterData)
+        {
+            NX_PRINT << "Counter not available - no data from counter receiver yet";
+        }
+        return;
+    }
+    
+    // Create counter object metadata
+    auto counterObject = makePtr<ObjectMetadata>();
+    static const Uuid counterTrackId = UuidHelper::randomUuid();
+    counterObject->setTypeId("nx.atin.counter");
+    counterObject->setTrackId(counterTrackId);
+    
+    // Set bounding box rất nhỏ và ở ngoài màn hình để không hiển thị bbox
+    // nhưng vẫn cho phép NX hiển thị text overlay
+    Rect counterBbox;
+    counterBbox.x = -0.1F;      // Ngoài màn hình bên trái
+    counterBbox.y = -0.1F;      // Ngoài màn hình phía trên
+    counterBbox.width = 0.001F;  // Rất nhỏ để không hiển thị
+    counterBbox.height = 0.001F; // Rất nhỏ để không hiển thị
+    counterObject->setBoundingBox(counterBbox);
+    
+    // Use "Name" attribute - NX often displays this as text overlay
+    std::string counterText = "Số người vào: " + std::to_string(totalCount);
+    counterObject->addAttribute(makePtr<Attribute>(
+        Attribute::Type::string,
+        "Name",  // Use "Name" attribute which NX may display
+        counterText));
+    
+    // Also add counterText as backup
+    counterObject->addAttribute(makePtr<Attribute>(
+        Attribute::Type::string,
+        "counterText",
+        counterText));
+    
+    metadataPacket->addItem(counterObject.get());
+    
+    // Debug log every 25 frames (1 second at 25fps)
+    if (m_frameIndex % 25 == 0)
+    {
+        NX_PRINT << "Counter object added: " << counterText 
+                 << " (bbox: " << counterBbox.x << "," << counterBbox.y 
+                 << " " << counterBbox.width << "x" << counterBbox.height << ")";
+    }
+}
+
+std::vector<Ptr<IObjectTrackBestShotPacket>> DeviceAgent::generateBestShots(int64_t frameTimestampUs)
+{
+    std::vector<Ptr<IObjectTrackBestShotPacket>> result;
+    
+    std::lock_guard<std::mutex> lock(m_mutex);
+    
+    // Generate Best Shot for all tracks that need it
+    for (const auto& entry : m_trackIdsNeedingBestShot)
+    {
+        const Uuid& trackId = entry.first;
+        const Rect& boundingBox = entry.second;
+        
+        // Create Best Shot packet with bounding box from detection
+        auto bestShotPacket = makePtr<ObjectTrackBestShotPacket>(
+            trackId,
+            frameTimestampUs,
+            boundingBox);
+        
+        result.push_back(std::move(bestShotPacket));
+        
+        // Mark this track as having Best Shot generated
+        m_trackIdsWithBestShot.insert(trackId);
+    }
+    
+    // Clear the map after generating Best Shots
+    m_trackIdsNeedingBestShot.clear();
+    
+    return result;
 }
 
 } // namespace object_detection

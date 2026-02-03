@@ -14,7 +14,13 @@ static const std::string kDeviceAgentManifest = /*suppress newline*/ 1 + (const 
 {
     "typeLibrary":
     {
-        "objectTypes": []
+        "objectTypes":
+        [
+            {
+                "id": "nx.atin.counter",
+                "name": "Số người vào"
+            }
+        ]
     },
     "supportedTypes":
     [
@@ -26,6 +32,14 @@ static const std::string kDeviceAgentManifest = /*suppress newline*/ 1 + (const 
                 "Age",
                 "Emotion",
                 "Name"
+            ]
+        },
+        {
+            "objectTypeId": "nx.atin.counter",
+            "attributes":
+            [
+                "Name",
+                "counterText"
             ]
         }
     ]

@@ -9,10 +9,13 @@
 #include <unordered_map>
 
 #include <nx/sdk/analytics/helpers/consuming_device_agent.h>
+#include <nx/sdk/analytics/helpers/object_metadata_packet.h>
+#include <nx/sdk/analytics/helpers/object_track_best_shot_packet.h>
 #include <nx/sdk/helpers/uuid_helper.h>
 
 #include "engine.h"
 #include "mqtt_object_receiver.h"
+#include "mqtt_counter_receiver.h"
 
 namespace nx {
 namespace vms_server_plugins {
@@ -48,6 +51,9 @@ private:
 
     nx::sdk::Ptr<nx::sdk::analytics::IMetadataPacket> generateObjectMetadataPacket(
         int64_t frameTimestampUs);
+    
+    std::vector<nx::sdk::Ptr<nx::sdk::analytics::IObjectTrackBestShotPacket>> generateBestShots(
+        int64_t frameTimestampUs);
 
 private:
     mutable std::mutex m_mutex;
@@ -58,8 +64,21 @@ private:
     std::unordered_map<int, nx::sdk::Uuid> m_trackIds;
     std::set<std::string> m_objectTypeIdsToGenerate;
     
-    // MQTT receiver for AI detections
+    // Track IDs that need Best Shot generation (newly detected objects)
+    // Map: trackId -> boundingBox
+    std::map<nx::sdk::Uuid, nx::sdk::analytics::Rect> m_trackIdsNeedingBestShot;
+    
+    // Track IDs that already have Best Shot generated (to avoid duplicates)
+    std::set<nx::sdk::Uuid> m_trackIdsWithBestShot;
+    
+    // MQTT receiver for AI detections (bbox)
     std::unique_ptr<MqttObjectReceiver> m_mqttReceiver;
+    
+    // MQTT receiver for people counter (totalCount) - separate topic
+    std::unique_ptr<MqttCounterReceiver> m_mqttCounterReceiver;
+    
+    // Add counter object to metadata packet
+    void addCounterObject(nx::sdk::Ptr<nx::sdk::analytics::ObjectMetadataPacket> metadataPacket, int64_t frameTimestampUs);
 };
 
 } // namespace object_detection

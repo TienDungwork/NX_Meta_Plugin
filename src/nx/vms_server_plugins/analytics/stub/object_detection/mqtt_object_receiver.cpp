@@ -167,6 +167,9 @@ void MqttObjectReceiver::parseDetectionMessage(const std::string& message)
         
         auto obj = data.object_items();
         
+        // Note: totalCount is now handled by separate MqttCounterReceiver
+        // This receiver only handles detections
+        
         if (obj.count("detections") == 0 || !obj["detections"].is_array())
         {
             NX_PRINT << "No 'detections' array found in message";
