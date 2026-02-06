@@ -8,12 +8,10 @@ import paho.mqtt.client as mqtt
 import json
 import time
 
-BROKER = "192.168.1.215"
+BROKER = "103.9.158.149"
 PORT = 1883
 CAMERA_ID = "729e9f41-9c81-f825-9355-73b5b702ca4e"  # Thay đổi camera ID của bạn
 TOPIC = f"vms/ai/counter/{CAMERA_ID}"  # Topic riêng cho counter
-USERNAME = "atin"
-PASSWORD = "team1@123#"
 
 def send_counter():
     """
@@ -34,8 +32,7 @@ def send_counter():
     
     # Create MQTT client
     client = mqtt.Client(client_id="vms_counter_sender")
-    client.username_pw_set(USERNAME, PASSWORD)
-    
+
     # Connect
     print("\n🔄 Connecting to broker...")
     try:

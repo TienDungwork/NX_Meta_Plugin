@@ -67,12 +67,6 @@ MqttObjectReceiver::MqttObjectReceiver(
     m_connOpts.set_keep_alive_interval(20);
     m_connOpts.set_clean_session(true);
     m_connOpts.set_automatic_reconnect(true);
-    
-    // Set MQTT authentication
-    const std::string MQTT_USERNAME = "atin";
-    const std::string MQTT_PASSWORD = "team1@123#";
-    m_connOpts.set_user_name(MQTT_USERNAME);
-    m_connOpts.set_password(MQTT_PASSWORD);
 }
 
 MqttObjectReceiver::~MqttObjectReceiver()

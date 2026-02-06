@@ -7,7 +7,7 @@ import threading
 import time
 
 # Cấu hình MQTT
-MQTT_BROKER = "192.168.1.215"
+MQTT_BROKER = "103.9.158.149"
 MQTT_PORT = 1883
 MQTT_REQUEST_TOPIC = "vms/roi/request"
 MQTT_RESPONSE_TOPIC = "vms/roi/response"

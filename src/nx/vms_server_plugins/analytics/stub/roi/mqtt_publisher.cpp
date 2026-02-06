@@ -164,12 +164,9 @@ void MqttPublisher::publishMessage(const std::string& message)
         
         std::string clientId = "vms_roi_plugin";
         std::string protocolName = "MQTT";
-        const std::string MQTT_USERNAME = "atin";
-        const std::string MQTT_PASSWORD = "team1@123#";
         
-        // Calculate remaining length for CONNECT (with username and password)
-        int connectPayloadLen = 2 + protocolName.length() + 1 + 1 + 2 + 2 + clientId.length() 
-                                + 2 + MQTT_USERNAME.length() + 2 + MQTT_PASSWORD.length();
+        // Calculate remaining length for CONNECT (no auth)
+        int connectPayloadLen = 2 + protocolName.length() + 1 + 1 + 2 + 2 + clientId.length();
         connectPacket += (char)connectPayloadLen;
         
         // Protocol name length + name
@@ -180,8 +177,8 @@ void MqttPublisher::publishMessage(const std::string& message)
         // Protocol level (MQTT 3.1.1 = 4)
         connectPacket += (char)0x04;
         
-        // Connect flags (clean session + username + password)
-        connectPacket += (char)0xC2; // 0x02 (clean session) + 0x40 (username) + 0x80 (password)
+        // Connect flags (clean session only, no username/password)
+        connectPacket += (char)0x02;
         
         // Keep alive (60 seconds)
         connectPacket += (char)0x00;
@@ -191,16 +188,6 @@ void MqttPublisher::publishMessage(const std::string& message)
         connectPacket += (char)((clientId.length() >> 8) & 0xFF);
         connectPacket += (char)(clientId.length() & 0xFF);
         connectPacket += clientId;
-        
-        // Username length + username
-        connectPacket += (char)((MQTT_USERNAME.length() >> 8) & 0xFF);
-        connectPacket += (char)(MQTT_USERNAME.length() & 0xFF);
-        connectPacket += MQTT_USERNAME;
-        
-        // Password length + password
-        connectPacket += (char)((MQTT_PASSWORD.length() >> 8) & 0xFF);
-        connectPacket += (char)(MQTT_PASSWORD.length() & 0xFF);
-        connectPacket += MQTT_PASSWORD;
         
         // Send CONNECT
         send(sock, connectPacket.c_str(), connectPacket.length(), 0);

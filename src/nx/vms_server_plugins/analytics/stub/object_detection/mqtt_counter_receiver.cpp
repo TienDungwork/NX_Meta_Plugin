@@ -31,12 +31,7 @@ MqttCounterReceiver::MqttCounterReceiver(
     m_connOpts.set_automatic_reconnect(true);
     m_connOpts.set_keep_alive_interval(20);
     m_connOpts.set_connect_timeout(10);
-    
-    const std::string MQTT_USERNAME = "atin";
-    const std::string MQTT_PASSWORD = "team1@123#";
-    m_connOpts.set_user_name(MQTT_USERNAME);
-    m_connOpts.set_password(MQTT_PASSWORD);
-    
+
     m_callback = std::make_shared<Callback>(this);
     m_client->set_callback(*m_callback);
     

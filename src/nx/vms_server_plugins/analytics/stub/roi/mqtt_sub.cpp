@@ -123,32 +123,19 @@ void MqttSubscriber::publishResponse(const std::string& message)
         
         std::string clientId = "vms_roi_response";
         std::string protocolName = "MQTT";
-        const std::string MQTT_USERNAME = "atin";
-        const std::string MQTT_PASSWORD = "team1@123#";
         
-        int connectPayloadLen = 2 + protocolName.length() + 1 + 1 + 2 + 2 + clientId.length()
-                                + 2 + MQTT_USERNAME.length() + 2 + MQTT_PASSWORD.length();
+        int connectPayloadLen = 2 + protocolName.length() + 1 + 1 + 2 + 2 + clientId.length();
         connectPacket += (char)connectPayloadLen;
         connectPacket += (char)0x00;
         connectPacket += (char)0x04;
         connectPacket += protocolName;
         connectPacket += (char)0x04;
-        connectPacket += (char)0xC2; // Clean session + username + password
+        connectPacket += (char)0x02; // Clean session only, no auth
         connectPacket += (char)0x00;
         connectPacket += (char)0x3C;
         connectPacket += (char)((clientId.length() >> 8) & 0xFF);
         connectPacket += (char)(clientId.length() & 0xFF);
         connectPacket += clientId;
-        
-        // Username length + username
-        connectPacket += (char)((MQTT_USERNAME.length() >> 8) & 0xFF);
-        connectPacket += (char)(MQTT_USERNAME.length() & 0xFF);
-        connectPacket += MQTT_USERNAME;
-        
-        // Password length + password
-        connectPacket += (char)((MQTT_PASSWORD.length() >> 8) & 0xFF);
-        connectPacket += (char)(MQTT_PASSWORD.length() & 0xFF);
-        connectPacket += MQTT_PASSWORD;
         
         send(sock, connectPacket.c_str(), connectPacket.length(), 0);
         
@@ -332,32 +319,19 @@ bool MqttSubscriber::connectAndSubscribe()
     connectPacket += (char)0x10;
     
     std::string protocolName = "MQTT";
-    const std::string MQTT_USERNAME = "atin";
-    const std::string MQTT_PASSWORD = "team1@123#";
     
-    int connectPayloadLen = 2 + protocolName.length() + 1 + 1 + 2 + 2 + m_clientId.length()
-                            + 2 + MQTT_USERNAME.length() + 2 + MQTT_PASSWORD.length();
+    int connectPayloadLen = 2 + protocolName.length() + 1 + 1 + 2 + 2 + m_clientId.length();
     connectPacket += (char)connectPayloadLen;
     connectPacket += (char)0x00;
     connectPacket += (char)0x04;
     connectPacket += protocolName;
     connectPacket += (char)0x04; // Protocol level
-    connectPacket += (char)0xC2; // Clean session + username + password
+    connectPacket += (char)0x02; // Clean session only, no auth
     connectPacket += (char)0x00; // Keep alive MSB
     connectPacket += (char)0x3C; // Keep alive LSB (60s)
     connectPacket += (char)((m_clientId.length() >> 8) & 0xFF);
     connectPacket += (char)(m_clientId.length() & 0xFF);
     connectPacket += m_clientId;
-    
-    // Username length + username
-    connectPacket += (char)((MQTT_USERNAME.length() >> 8) & 0xFF);
-    connectPacket += (char)(MQTT_USERNAME.length() & 0xFF);
-    connectPacket += MQTT_USERNAME;
-    
-    // Password length + password
-    connectPacket += (char)((MQTT_PASSWORD.length() >> 8) & 0xFF);
-    connectPacket += (char)(MQTT_PASSWORD.length() & 0xFF);
-    connectPacket += MQTT_PASSWORD;
     
     send(m_socket, connectPacket.c_str(), connectPacket.length(), 0);
     

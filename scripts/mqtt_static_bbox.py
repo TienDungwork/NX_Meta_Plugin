@@ -2,7 +2,7 @@ import paho.mqtt.client as mqtt
 import json
 import time
 
-BROKER = "192.168.1.215"
+BROKER = "103.9.158.149"
 PORT = 1883
 CAMERA_ID = "7e1069d3-593b-bfd2-3271-bbe924e03da2"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"

@@ -9,9 +9,9 @@ import json
 import time
 import random
 
-BROKER = "192.168.1.215"
+BROKER = "103.9.158.149"
 PORT = 1883
-CAMERA_ID = "742b49df-51af-29e2-75e5-d179f1b2d74d"
+CAMERA_ID = "729e9f41-9c81-f825-9355-73b5b702ca4e"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
 
 def generate_random_bbox():
