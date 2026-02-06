@@ -95,7 +95,7 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
             // USE MQTT DETECTIONS
             std::lock_guard<std::mutex> lock(m_mutex);
             
-            //NX_PRINT << "Using MQTT detections: " << mqttDetections.size() << " objects";
+            NX_PRINT << "Using MQTT detections: " << mqttDetections.size() << " objects";
             
             // Store objects in vector to prevent destruction before addItem
             std::vector<Ptr<ObjectMetadata>> mqttObjects;
@@ -117,7 +117,7 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 // All labels use nx.base.{Label} format
                 objectTypeId = "nx.base." + capitalizedLabel;
                 
-                //NX_PRINT << "MQTT label '" << label << "' -> object type: " << objectTypeId;
+                NX_PRINT << "MQTT label '" << label << "' -> object type: " << objectTypeId;
                 
                 // Check if this object type is enabled in settings
                 if (!m_objectTypeIdsToGenerate.empty() && 
@@ -185,12 +185,12 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
                 metadataPacket->addItem(obj.get());
             }
             
-            //NX_PRINT << "Added " << mqttObjects.size() << " MQTT objects to packet";
+            NX_PRINT << "Added " << mqttObjects.size() << " MQTT objects to packet";
         }
         else
         {
             // MQTT is active but sent empty detections - show nothing
-            //NX_PRINT << "MQTT active but empty detections - showing nothing";
+            NX_PRINT << "MQTT active but empty detections - showing nothing";
             // Don't add any items to metadataPacket
         }
     }
@@ -219,9 +219,9 @@ DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
     std::string detectionsTopic = "vms/ai/detections/" + cameraId;
     std::string counterTopic = "vms/ai/counter/" + cameraId;  // Separate topic for counter
     
-    //NX_PRINT << "Camera ID: " << cameraId;
-    //NX_PRINT << "MQTT Detections Topic: " << detectionsTopic;
-    //NX_PRINT << "MQTT Counter Topic: " << counterTopic;
+    NX_PRINT << "Camera ID: " << cameraId;
+    NX_PRINT << "MQTT Detections Topic: " << detectionsTopic;
+    NX_PRINT << "MQTT Counter Topic: " << counterTopic;
     
     // Initialize MQTT receiver for AI detections (bbox)
     m_mqttReceiver = std::make_unique<MqttObjectReceiver>("103.9.158.149", 1883, detectionsTopic);
@@ -291,7 +291,7 @@ nx::sdk::Result<const nx::sdk::ISettingsResponse*> DeviceAgent::settingsReceived
         {
             std::string objectType = key.substr(kObjectTypeGenerationSettingPrefix.size());
             m_objectTypeIdsToGenerate.insert(objectType);
-            //NX_PRINT << "Enabled object type: " << objectType;
+            NX_PRINT << "Enabled object type: " << objectType;
         }
         else if (key == kSendAttributesSetting)
             m_sendAttributes = toBool(value);
@@ -299,7 +299,7 @@ nx::sdk::Result<const nx::sdk::ISettingsResponse*> DeviceAgent::settingsReceived
             m_timestampShiftMs = std::stoi(value);
     }
     
-    //NX_PRINT << "Total enabled object types: " << m_objectTypeIdsToGenerate.size();
+    NX_PRINT << "Total enabled object types: " << m_objectTypeIdsToGenerate.size();
 
     return nullptr;
 }
