@@ -10,7 +10,7 @@ import time
 
 BROKER = "103.9.158.149"
 PORT = 1883
-CAMERA_ID = "7e1069d3-593b-bfd2-3271-bbe924e03da2"  # Thay đổi camera ID của bạn
+CAMERA_ID = "0392f587-7ba3-6f0e-a193-621bdc515e16"  # Thay đổi camera ID của bạn
 TOPIC = f"vms/ai/counter/{CAMERA_ID}"  # Topic riêng cho counter
 
 def send_counter():

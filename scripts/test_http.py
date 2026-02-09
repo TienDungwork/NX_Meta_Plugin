@@ -4,7 +4,7 @@ import sys
 
 HTTP_SERVER = "http://192.168.1.215:8090"
 CAMERA_IDS = {
-    "1": "{8c8b693d-038f-53a6-518f-7a84131b023d}",
+    "1": "{db57be08-fd1d-3b2c-81da-f65dc6051d17}",
     "2": "{7e1069d3-593b-bfd2-3271-bbe924e03da2}"
 }
 

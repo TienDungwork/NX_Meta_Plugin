@@ -357,25 +357,22 @@ void DeviceAgent::addCounterObject(Ptr<ObjectMetadataPacket> metadataPacket, int
     counterBbox.height = 0.001F; // Rất nhỏ để không hiển thị
     counterObject->setBoundingBox(counterBbox);
     
-    // Use "Name" attribute - NX often displays this as text overlay
-    std::string counterText = "Số người vào: " + std::to_string(totalCount);
+    // Show as a single attribute row in UI:
+    // Left column: "Số người vào"
+    // Right column: ": <count>"
+    std::string counterLabel = "Số người vào";
+    std::string counterValue = ": " + std::to_string(totalCount);
     counterObject->addAttribute(makePtr<Attribute>(
         Attribute::Type::string,
-        "Name",  // Use "Name" attribute which NX may display
-        counterText));
-    
-    // Also add counterText as backup
-    counterObject->addAttribute(makePtr<Attribute>(
-        Attribute::Type::string,
-        "counterText",
-        counterText));
+        counterLabel,
+        counterValue));
     
     metadataPacket->addItem(counterObject.get());
     
     // Debug log every 25 frames (1 second at 25fps)
     if (m_frameIndex % 25 == 0)
     {
-        NX_PRINT << "Counter object added: " << counterText 
+        NX_PRINT << "Counter object added: " << counterLabel << counterValue
                  << " (bbox: " << counterBbox.x << "," << counterBbox.y 
                  << " " << counterBbox.width << "x" << counterBbox.height << ")";
     }

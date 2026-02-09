@@ -8,7 +8,7 @@ from uuid import uuid4
 
 BROKER = "103.9.158.149"
 PORT = 1883
-CAMERA_ID = "7e1069d3-593b-bfd2-3271-bbe924e03da2"
+CAMERA_ID = "95285922-f0fd-bbcc-11f0-9e5b8d671e08"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
 
 # Simulating fake generation constants
