@@ -9,7 +9,7 @@ import json
 import time
 import random
 
-BROKER = "192.168.1.215"
+BROKER = "192.168.1.196"
 PORT = 1883
 CAMERA_ID = "742b49df-51af-29e2-75e5-d179f1b2d74d"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"

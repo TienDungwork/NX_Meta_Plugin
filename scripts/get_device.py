@@ -1,6 +1,6 @@
 import json, requests, urllib3
 
-BASE = "https://192.168.1.215:7001"
+BASE = "https://192.168.1.196:7001"
 USER = "Admin"
 
 PASS = "Atin@123#"

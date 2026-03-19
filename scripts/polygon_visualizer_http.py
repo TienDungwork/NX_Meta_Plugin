@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 
 # Configuration
-RTSP_URL = "rtsp://192.168.1.215:7001/4af76c5ac6f541b0ae9ffbd4d56b51c3"  # Camera 1
+RTSP_URL = "rtsp://192.168.1.196:7001/4af76c5ac6f541b0ae9ffbd4d56b51c3"  # Camera 1
 HTTP_SERVER = "http://localhost:8090"
 CAMERA_ID = "{8c8b693d-038f-53a6-518f-7a84131b023d}"  # Camera 1
 

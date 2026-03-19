@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 import json
 import time
 
-BROKER = "192.168.1.215"
+BROKER = "192.168.1.196"
 PORT = 1883
 CAMERA_ID = "729e9f41-9c81-f825-9355-73b5b702ca4e"  # Thay đổi camera ID của bạn
 TOPIC = f"vms/ai/counter/{CAMERA_ID}"  # Topic riêng cho counter

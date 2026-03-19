@@ -6,12 +6,12 @@ import time
 import math
 from uuid import uuid4
 
-BROKER = "192.168.1.215"
+BROKER = "192.168.1.196"
 PORT = 1883
-CAMERA_ID = "729e9f41-9c81-f825-9355-73b5b702ca4e"
+CAMERA_ID = "0392f587-7ba3-6f0e-a193-621bdc515e16"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
-USERNAME = "atin"
-PASSWORD = "team1@123#"
+# USERNAME = "admin"
+# PASSWORD = "Ab@123456"
 
 # Simulating fake generation constants
 TRACK_LENGTH = 100
@@ -45,7 +45,6 @@ def send_moving_detections():
     
     # Create MQTT client
     client = mqtt.Client(client_id="vms_moving_bbox_sender")
-    client.username_pw_set(USERNAME, PASSWORD)
     # Connect
     print("\n🔄 Connecting to broker...")
     client.connect(BROKER, PORT, 60)
