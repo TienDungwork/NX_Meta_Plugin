@@ -1,33 +1,34 @@
-#!/usr/bin/env python3"
+#!/usr/bin/env python3
 
 import paho.mqtt.client as mqtt
 import json
 import time
-import math
-from uuid import uuid4
 
-BROKER = "192.168.1.196"
+BROKER = "localhost"
 PORT = 1883
-CAMERA_ID = "0392f587-7ba3-6f0e-a193-621bdc515e16"
+CAMERA_ID = "0fdba7df-64c1-ebd4-9e73-677f2d77f211"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
 # USERNAME = "admin"
 # PASSWORD = "Ab@123456"
 
-# Simulating fake generation constants
+# Publish rate and one full bottom→top cycle length (frames).
+FPS = 20
 TRACK_LENGTH = 100
 BBOX_WIDTH = 0.15
 BBOX_HEIGHT = 0.15
 
-def calculate_y_position(frame_index):
+
+def calculate_y_position(frame_index: int) -> float:
     """
-    Calculate Y position like fake generation:
-    y = max(0.0, 1.0 - height - (1.0 / TRACK_LENGTH) * (frameIndex % TRACK_LENGTH))
-    
-    Starts from bottom (1.0 - height) and moves up to 0.0
+    Normalized top-left Y: bbox moves straight from bottom of the frame to the top.
+
+    progress 0   → y = 1.0 - height (box on bottom edge)
+    progress → 1 → y → 0.0 (box at top)
     """
-    progress = (frame_index % TRACK_LENGTH) / TRACK_LENGTH
-    y = max(0.0, 1.0 - BBOX_HEIGHT - progress)
-    return y
+    progress = (frame_index % TRACK_LENGTH) / float(TRACK_LENGTH)
+    y_at_bottom = 1.0 - BBOX_HEIGHT
+    y_at_top = 0.0
+    return y_at_bottom + (y_at_top - y_at_bottom) * progress
 
 def send_moving_detections():
     """Send moving bounding boxes like fake generation"""
@@ -39,8 +40,8 @@ def send_moving_detections():
     print(f"Topic:  {TOPIC}")
     print("\n📊 Simulation:")
     print("   - 2 objects: Person (left), Car (right)")
-    print("   - Moving from BOTTOM to TOP")
-    print("   - Like fake generation pattern")
+    print("   - Moving from BOTTOM to TOP (linear)")
+    print(f"   - Publish rate: {FPS} FPS")
     print("\n" + "="*80)
     
     # Create MQTT client
@@ -60,12 +61,13 @@ def send_moving_detections():
         while True:
             # Calculate Y positions (moving from bottom to top)
             y_person = calculate_y_position(frame_index)
-            y_car = calculate_y_position(frame_index + 10)  # Slightly offset
-            
-            # Create detections with moving positions
+            y_vehicle = calculate_y_position(frame_index + 10)  # slightly offset
+
+            # Create detections (face + vehicle)
             detections = {
                 "detections": [
                     {
+                        # Use canonical labels so VMS taxonomy mapping works.
                         "label": "face",
                         "confidence": 0.95,
                         "bbox": [
@@ -77,16 +79,16 @@ def send_moving_detections():
                         "trackId": 1
                     },
                     {
-                        "label": "Face",
+                        "label": "vehicle",
                         "confidence": 0.90,
                         "bbox": [
                             0.70,           # x: right side
-                            y_car,          # y: moving from bottom to top
+                            y_vehicle,      # y: moving from bottom to top
                             BBOX_WIDTH,     # width
                             BBOX_HEIGHT     # height
                         ],
                         "trackId": 2
-                    }
+                    },
                 ]
             }
             
@@ -97,13 +99,14 @@ def send_moving_detections():
             # Print status every 10 frames
             if frame_index % 10 == 0:
                 cycle_progress = (frame_index % TRACK_LENGTH) / TRACK_LENGTH * 100
-                print(f"📤 Frame {frame_index:4d} | Cycle: {cycle_progress:5.1f}% | "
-                      f"Person Y: {y_person:.3f} | Car Y: {y_car:.3f}")
+                print(
+                    f"📤 Frame {frame_index:4d} | Cycle: {cycle_progress:5.1f}% | "
+                    f"Face Y: {y_person:.3f} | Vehicle Y: {y_vehicle:.3f}"
+                )
             
             frame_index += 1
-            
-            # Simulate 25 FPS
-            time.sleep(1.0 / 25.0)
+
+            time.sleep(1.0 / FPS)
             
     except KeyboardInterrupt:
         print("\n\n🛑 Stopping...")

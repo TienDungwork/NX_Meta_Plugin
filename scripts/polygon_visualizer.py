@@ -7,7 +7,7 @@ import threading
 import time
 
 # Cấu hình MQTT
-MQTT_BROKER = "192.168.1.196"
+MQTT_BROKER = "103.9.156.56"
 MQTT_PORT = 1883
 MQTT_REQUEST_TOPIC = "vms/roi/request"
 MQTT_RESPONSE_TOPIC = "vms/roi/response"
@@ -15,7 +15,7 @@ MQTT_CLIENT_ID = "polygon_visualizer"
 
 # Cấu hình Camera
 CAMERA_ID = "{7e1069d3-593b-bfd2-3271-bbe924e03da2}"
-RTSP_URL = "rtsp://ntiendung:T12345678@192.168.1.196:7001/7e1069d3-593b-bfd2-3271-bbe924e03da2"
+RTSP_URL = "rtsp://ntiendung:T12345678@103.9.156.56:7001/7e1069d3-593b-bfd2-3271-bbe924e03da2"
 
 # Polling interval (seconds)
 POLYGON_REQUEST_INTERVAL = 3

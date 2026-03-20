@@ -18,11 +18,11 @@ std::string Integration::manifestString() const
 {
     return /*suppress newline*/ 1 + (const char*) R"json(
 {
-    "id": "nx.stub.mqtt",
-    "name": "Stub, MQTT",
-    "description": "A helper stub for configuring MQTT connection settings shared by other stubs.",
-    "version": "1.0.0",
-    "vendor": "Plugin vendor"
+    "id": "atin.mqtt",
+    "name": "MQTT Configuration",
+    "description": "MQTT connection module for broker configuration shared across analytics integrations.",
+    "version": "2.0.0",
+    "vendor": "ATIN Advanced Technology Innovations"
 }
 )json";
 }

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -35,6 +36,12 @@ public:
     /** Returns last received payload (and clears it). Empty if none. */
     std::string takeLastPayload();
 
+    /** Total PUBLISH payloads received on this connection (each MQTT message, not coalesced). */
+    std::uint64_t receivedPublishCount() const
+    {
+        return m_receivedPublishCount.load(std::memory_order_relaxed);
+    }
+
 private:
     void threadMain();
 
@@ -51,6 +58,8 @@ private:
 
     mutable std::mutex m_payloadMutex;
     std::string m_lastPayload;
+
+    std::atomic<std::uint64_t> m_receivedPublishCount{0};
 };
 
 } // namespace nx::vms_server_plugins::analytics::stub::common

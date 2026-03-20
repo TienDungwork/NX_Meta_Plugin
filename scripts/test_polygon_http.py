@@ -2,7 +2,7 @@ import requests
 import json
 import sys
 
-HTTP_SERVER = "http://192.168.1.196:8090"
+HTTP_SERVER = "http://103.9.156.56:8090"
 CAMERA_IDS = {
     "1": "{0392f587-7ba3-6f0e-a193-621bdc515e16}"
 }

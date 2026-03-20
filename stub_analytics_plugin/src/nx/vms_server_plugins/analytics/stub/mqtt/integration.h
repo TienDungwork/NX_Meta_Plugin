@@ -14,7 +14,7 @@ public:
 
 protected:
     nx::sdk::Result<nx::sdk::analytics::IEngine*> doObtainEngine() override;
-    std::string instanceId() const override { return "nx.stub.mqtt"; }
+    std::string instanceId() const override { return "atin.mqtt"; }
     std::string manifestString() const override;
 };
 

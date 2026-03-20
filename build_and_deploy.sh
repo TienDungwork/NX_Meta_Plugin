@@ -1,6 +1,6 @@
 #!/bin/bash
-PLUGIN_DIR="/home/atin/project/NX_Meta_Plugin/stub_analytics_plugin"
-METADATA_SDK="/home/atin/project/NX_Meta_Plugin/server_plugin_sdk"
+PLUGIN_DIR="/home/ubuntu/Atin_Nx/NX_Meta_Plugin/stub_analytics_plugin"
+METADATA_SDK="/home/ubuntu/Atin_Nx/NX_Meta_Plugin/server_plugin_sdk"
 PLUGIN_INSTALL_DIR="/opt/networkoptix-metavms/mediaserver/bin/plugins"
 PLUGIN_FILE="libstub_analytics_plugin.so"
 

@@ -2,7 +2,7 @@ import paho.mqtt.client as mqtt
 import json
 import time
 
-BROKER = "192.168.1.196"
+BROKER = "103.9.156.56"
 PORT = 1883
 CAMERA_ID = "7e1069d3-593b-bfd2-3271-bbe924e03da2"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
@@ -45,26 +45,26 @@ def send_static_detections():
             detections = {
                 "detections": [
                     {
-                        "label": "Face",
+                        "label": "face",
                         "confidence": 0.9,
                         "bbox": [
-                            PERSON_X,       
-                            PERSON_Y,       
-                            BBOX_WIDTH,     
-                            BBOX_HEIGHT     
+                            PERSON_X,
+                            PERSON_Y,
+                            BBOX_WIDTH,
+                            BBOX_HEIGHT
                         ],
                         "trackId": 3
                     },
                     {
-                        "label": "face",
+                        "label": "vehicle",
                         "confidence": 0.90,
                         "bbox": [
-                            CAR_X,          
-                            CAR_Y,          
-                            BBOX_WIDTH,     
-                            BBOX_HEIGHT    
+                            CAR_X,
+                            CAR_Y,
+                            BBOX_WIDTH,
+                            BBOX_HEIGHT
                         ],
-                        "trackId": 3
+                        "trackId": 4
                     }
                 ]
             }
@@ -76,8 +76,7 @@ def send_static_detections():
             # Print status every 20 frames
             if frame_index % 20 == 0:
                 print(f"Frame {frame_index:4d} | "
-                      f"Person: ({PERSON_X}, {PERSON_Y}) | "
-                      f"Car: ({CAR_X}, {CAR_Y}) - STATIC (CỐ ĐỊNH)")
+                      f"Face: ({PERSON_X}, {PERSON_Y}) | Vehicle: ({CAR_X}, {CAR_Y}) - STATIC (CỐ ĐỊNH)")
             
             frame_index += 1
             

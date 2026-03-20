@@ -11,7 +11,7 @@ namespace nx::vms_server_plugins::analytics::stub::common {
 struct MqttConfig
 {
     bool enabled = true;
-    std::string host = "192.168.1.196";
+    std::string host = "103.9.156.56";
     int port = 1883;
     std::string username;
     std::string password;

@@ -15,6 +15,7 @@ class Integration: public nx::sdk::analytics::Integration
 {
 protected:
     virtual nx::sdk::Result<nx::sdk::analytics::IEngine*> doObtainEngine() override;
+    virtual std::string instanceId() const override { return "atin.object_detection"; }
     virtual std::string manifestString() const override;
 };
 

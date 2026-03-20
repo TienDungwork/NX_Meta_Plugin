@@ -1,7 +1,7 @@
 # file: send_event.py
 import json, requests, urllib3
 
-BASE = "https://192.168.1.196:7001"
+BASE = "https://103.9.156.56:7001"
 USER = "admin"
 PASS = "Ab@123456"     # đổi nếu khác
 CAMERA_ID = "{0392f587-7ba3-6f0e-a193-621bdc515e16}"         # điền ID nếu muốn gán event vào camera, ví dụ "2b4f1a2e-..."

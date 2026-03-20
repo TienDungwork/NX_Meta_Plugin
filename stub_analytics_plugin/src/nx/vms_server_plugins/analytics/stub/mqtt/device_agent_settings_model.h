@@ -23,7 +23,7 @@ constexpr auto kDeviceAgentSettingsModel = R"json(
                     "type": "TextField",
                     "name": "mqtt.host",
                     "caption": "Broker host",
-                    "defaultValue": "192.168.1.196"
+                    "defaultValue": "103.9.156.56"
                 },
                 {
                     "type": "SpinBox",

@@ -358,6 +358,7 @@ void MqttSubscriber::threadMain()
             std::string payload;
             if (mqttExtractPublishPayload(fixed, rem, &payload))
             {
+                m_receivedPublishCount.fetch_add(1, std::memory_order_relaxed);
                 std::lock_guard<std::mutex> lock(m_payloadMutex);
                 m_lastPayload = std::move(payload);
             }

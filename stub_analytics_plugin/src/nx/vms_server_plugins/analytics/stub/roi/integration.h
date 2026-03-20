@@ -18,7 +18,7 @@ public:
 
 protected:
     virtual nx::sdk::Result<nx::sdk::analytics::IEngine*> doObtainEngine() override;
-    virtual std::string instanceId() const override { return "nx.stub.roi"; }
+    virtual std::string instanceId() const override { return "atin.roi"; }
     virtual std::string manifestString() const override;
 };
 

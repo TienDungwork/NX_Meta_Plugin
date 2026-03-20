@@ -22,3 +22,12 @@ Makefile
 *.swp
 *.swo
 *~
+
+
+server_plugin_sdk/
+
+
+docs/
+
+paho.mqtt.cpp/
+paho.mqtt.c/

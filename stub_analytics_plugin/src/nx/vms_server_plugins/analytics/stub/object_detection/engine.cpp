@@ -17,11 +17,8 @@ using namespace nx::sdk;
 using namespace nx::sdk::analytics;
 
 static const std::set<std::string> kObjectTypeIdsGeneratedByDefault = {
-    "nx.base.Bike",
-    "nx.base.Bus",
-    "nx.base.LicensePlate",
+    "nx.base.Vehicle",
     "nx.base.Face",
-    "nx.base.Person"
 };
 
 Engine::Engine(): nx::sdk::analytics::Engine(ini().enableOutput)
@@ -59,7 +56,9 @@ std::string Engine::manifestString() const
         {"type", "CheckBox"},
         {"name", DeviceAgent::kSendAttributesSetting},
         {"caption", "Send object attributes"},
-        {"defaultValue", true}
+        // Attributes generation can be relatively expensive. Default to disabled
+        // so the stub can keep up with real-time frame ingestion.
+        {"defaultValue", false}
     };
     generationSettings.push_back(std::move(attributesSetting));
 
@@ -69,10 +68,16 @@ std::string Engine::manifestString() const
     {
         Json::object supportedTypeObject = supportedType.object_items();
         const std::string& objectTypeId = supportedTypeObject["objectTypeId"].string_value();
+        std::string caption = objectTypeId;
+        if (objectTypeId == "nx.base.Face")
+            caption = "Detect Face";
+        else if (objectTypeId == "nx.base.Vehicle")
+            caption = "Detect Vehicle";
+
         Json::object generationSetting = {
             {"type", "CheckBox"},
             {"name", DeviceAgent::kObjectTypeGenerationSettingPrefix + objectTypeId},
-            {"caption", objectTypeId},
+            {"caption", caption},
             {
                 "defaultValue",
                 kObjectTypeIdsGeneratedByDefault.find(objectTypeId)

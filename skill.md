@@ -26,7 +26,7 @@ description: Hướng dẫn chỉnh `stub_analytics_plugin` để chỉ build RO
   - Topic: `vms/ai/detections/<CAMERA_ID>`
   - `CAMERA_ID` lấy từ `deviceInfo->id()` (uuid có thể kèm `{}` → plugin đã trim).
 - MQTT broker config lấy từ **store dùng chung** `common::MqttConfigStore`:
-  - Default: host `192.168.1.196`, port `1883`, không user/pass
+  - Default: host `103.9.156.56`, port `1883`, không user/pass
   - Có thể chỉnh trong UI của stub `nx.stub.mqtt` (mục bên dưới)
 
 Payload JSON (theo scripts của bạn, ví dụ `scripts/mqtt_moving_bbox.py`):

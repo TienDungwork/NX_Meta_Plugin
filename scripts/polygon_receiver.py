@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 # Cấu hình MQTT
-MQTT_BROKER = "192.168.1.196"
+MQTT_BROKER = "103.9.156.56"
 MQTT_PORT = 1883
 MQTT_TOPIC = "vms/roi/polygon"
 MQTT_CLIENT_ID = "polygon_receiver"

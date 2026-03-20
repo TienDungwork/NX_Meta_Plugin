@@ -4,8 +4,6 @@
 
 #include <chrono>
 #include <cctype>
-#include <limits>
-#include <string>
 #include <nx/kit/json.h>
 #include <nx/kit/debug.h>
 
@@ -32,7 +30,7 @@ static constexpr int kTrackLength = 200;
 static constexpr float kMaxBoundingBoxWidth = 0.5F;
 static constexpr float kMaxBoundingBoxHeight = 0.5F;
 static constexpr float kFreeSpace = 0.1F;
-static constexpr int kMqttHoldMs = 50; // Clear boxes if no successful bbox update for this long.
+static constexpr int kMqttHoldMs = 300; // Clear stale boxes quickly when MQTT stops.
 const std::string DeviceAgent::kTimeShiftSetting = "timestampShiftMs";
 const std::string DeviceAgent::kSendAttributesSetting = "sendAttributes";
 const std::string DeviceAgent::kObjectTypeGenerationSettingPrefix = "objectTypeIdToGenerate.";
@@ -64,13 +62,6 @@ static std::string objectTypeIdFromLabel(const std::string& label)
     if (l == "vehicle" || l == "car")
         return "nx.base.Vehicle";
     return "nx.base.Unknown";
-}
-
-/** Unknown / missing label still draws if bbox is valid (defaults to Face for taxonomy). */
-static std::string typeIdForDrawing(const std::string& label)
-{
-    const std::string t = objectTypeIdFromLabel(label);
-    return (t == "nx.base.Unknown") ? "nx.base.Face" : t;
 }
 
 static Rect generateBoundingBox(int frameIndex, int trackIndex, int trackCount)
@@ -124,9 +115,7 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
             std::chrono::steady_clock::now().time_since_epoch())
             .count();
 
-    rollMqttMessageRateWindows(nowMs);
-
-    // Clear boxes when no successful bbox payload for a short time.
+    // Clear stale boxes when MQTT stops, to avoid "stuck boxes".
     const int64_t lastMs = m_lastMqttPayloadMs.load(std::memory_order_relaxed);
     if (lastMs != 0 && (nowMs - lastMs) > kMqttHoldMs)
     {
@@ -145,8 +134,6 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
     for (const auto& obj : cached)
         metadataPacket->addItem(obj);
 
-    appendMqttMessageRateHud(metadataPacket);
-
     return metadataPacket;
 }
 
@@ -162,21 +149,12 @@ void DeviceAgent::restartMqttSubscriber(
     }
 
     if (!cfg.enabled)
-    {
-        m_mqttMsgRateWindowStartMs = 0;
-        m_mqttRxCountBaseline = 0;
-        m_mqttMsgsPerSecondDisplay.store(0, std::memory_order_relaxed);
         return;
-    }
 
     m_mqttSubscriber =
         std::make_unique<nx::vms_server_plugins::analytics::stub::common::MqttSubscriber>(
             cfg.host, cfg.port, m_topic, cfg.username, cfg.password);
     m_mqttSubscriber->start();
-
-    m_mqttMsgRateWindowStartMs = 0;
-    m_mqttRxCountBaseline = 0;
-    m_mqttMsgsPerSecondDisplay.store(0, std::memory_order_relaxed);
 }
 
 DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
@@ -258,46 +236,6 @@ nx::sdk::Result<const nx::sdk::ISettingsResponse*> DeviceAgent::settingsReceived
     return nullptr;
 }
 
-void DeviceAgent::rollMqttMessageRateWindows(int64_t nowMs)
-{
-    if (m_mqttMsgRateWindowStartMs == 0)
-    {
-        m_mqttMsgRateWindowStartMs = nowMs;
-        std::lock_guard<std::mutex> lock(m_mqttSubscriberMutex);
-        if (m_mqttSubscriber)
-            m_mqttRxCountBaseline = m_mqttSubscriber->receivedPublishCount();
-        return;
-    }
-
-    while (nowMs - m_mqttMsgRateWindowStartMs >= 1000)
-    {
-        std::uint64_t cur = 0;
-        {
-            std::lock_guard<std::mutex> lock(m_mqttSubscriberMutex);
-            if (m_mqttSubscriber)
-                cur = m_mqttSubscriber->receivedPublishCount();
-        }
-        const std::uint64_t delta = cur - m_mqttRxCountBaseline;
-        m_mqttMsgsPerSecondDisplay.store(
-            (int) std::min(delta, (std::uint64_t) std::numeric_limits<int>::max()),
-            std::memory_order_relaxed);
-        m_mqttRxCountBaseline = cur;
-        m_mqttMsgRateWindowStartMs += 1000;
-    }
-}
-
-void DeviceAgent::appendMqttMessageRateHud(const Ptr<ObjectMetadataPacket>& packet)
-{
-    const int rate = m_mqttMsgsPerSecondDisplay.load(std::memory_order_relaxed);
-    auto hud = makePtr<ObjectMetadata>();
-    hud->setTypeId("nx.base.Face");
-    hud->setBoundingBox(Rect{0.02F, 0.02F, 0.45F, 0.08F});
-    hud->setConfidence(1.0);
-    hud->setTrackId(trackIdByTrackType("mqtt_msg_rate_hud"));
-    hud->addAttribute(makePtr<Attribute>("Name", std::to_string(rate) + " MQTT msg/s"));
-    packet->addItem(std::move(hud));
-}
-
 void DeviceAgent::mqttParseThreadMain()
 {
     while (!m_stopParseThread.load(std::memory_order_relaxed))
@@ -323,11 +261,7 @@ void DeviceAgent::mqttParseThreadMain()
         std::string parseError;
         const nx::kit::Json data = nx::kit::Json::parse(payload, parseError);
         if (!parseError.empty() || !data.is_object() || !data["detections"].is_array())
-        {
-            std::lock_guard<std::mutex> lock(m_cacheMutex);
-            m_cachedObjects.clear();
             continue;
-        }
 
         bool sendAttributesLocal = false;
         std::set<std::string> objectTypeIdsToGenerateLocal;
@@ -345,26 +279,29 @@ void DeviceAgent::mqttParseThreadMain()
             if (!det.is_object())
                 continue;
 
-            if (!det["bbox"].is_array())
-                continue;
-            const auto bbox = det["bbox"].array_items();
-            if (bbox.size() < 4)
-                continue;
-            const float x = (float) bbox[0].number_value();
-            const float y = (float) bbox[1].number_value();
-            const float w = (float) bbox[2].number_value();
-            const float h = (float) bbox[3].number_value();
-            if (w <= 0.F || h <= 0.F)
-                continue;
-
             const std::string label =
                 det["label"].is_string() ? det["label"].string_value() : "";
-            const std::string typeId = typeIdForDrawing(label);
+            const std::string typeId = objectTypeIdFromLabel(label);
+            if (typeId == "nx.base.Unknown")
+                continue;
 
             const double confidence =
                 det["confidence"].is_number() ? det["confidence"].number_value() : 1.0;
             const int trackId =
                 det["trackId"].is_number() ? det["trackId"].int_value() : 0;
+
+            float x = 0, y = 0, w = 0, h = 0;
+            if (det["bbox"].is_array())
+            {
+                const auto bbox = det["bbox"].array_items();
+                if (bbox.size() >= 4)
+                {
+                    x = (float) bbox[0].number_value();
+                    y = (float) bbox[1].number_value();
+                    w = (float) bbox[2].number_value();
+                    h = (float) bbox[3].number_value();
+                }
+            }
 
             auto obj = makePtr<ObjectMetadata>();
             obj->setTypeId(typeId);
