@@ -6,6 +6,8 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <cstdio>
+#include <functional>
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -19,6 +21,16 @@
 namespace nx::vms_server_plugins::analytics::stub::common {
 
 namespace {
+
+static std::string makeStableClientId(const std::string& topic)
+{
+    // MQTT broker drops old connections when clientId collides.
+    // Use per-topic stable clientId so each camera subscriber keeps its own session.
+    const auto h = (std::uint64_t) std::hash<std::string>{}(topic);
+    char suffix[17]{};
+    std::snprintf(suffix, sizeof(suffix), "%016llx", (unsigned long long) h);
+    return std::string("nx_sub_") + suffix; // 7 + 16 = 23 chars (MQTT 3.1.1 friendly)
+}
 
 static bool sendAll(int fd, const void* data, size_t size)
 {
@@ -239,7 +251,11 @@ static bool mqttReadOnePacket(int fd, uint8_t* outType, std::string* outPayload)
     return true;
 }
 
-static bool mqttExtractPublishPayload(const uint8_t fixed, const std::string& rem, std::string* outPayload)
+static bool mqttExtractPublishPayloadAndTopic(
+    const uint8_t fixed,
+    const std::string& rem,
+    std::string* outTopic,
+    std::string* outPayload)
 {
     const uint8_t type = fixed & 0xF0;
     if (type != 0x30 && type != 0x31 && type != 0x32 && type != 0x33) // PUBLISH variants
@@ -247,6 +263,9 @@ static bool mqttExtractPublishPayload(const uint8_t fixed, const std::string& re
     if (rem.size() < 2)
         return false;
     const uint16_t topicLen = (uint16_t)(((uint8_t)rem[0] << 8) | (uint8_t)rem[1]);
+    if (2 + (size_t) topicLen > rem.size())
+        return false;
+    *outTopic = rem.substr(2, topicLen);
     size_t pos = 2 + topicLen;
     if (pos > rem.size())
         return false;
@@ -310,7 +329,7 @@ std::string MqttSubscriber::takeLastPayload()
 
 void MqttSubscriber::threadMain()
 {
-    const std::string clientId = "nx_stub_bbox_sub";
+    const std::string clientId = makeStableClientId(m_topic);
     uint16_t pid = 1;
 
     while (!m_stopRequested.load())
@@ -356,8 +375,12 @@ void MqttSubscriber::threadMain()
             }
 
             std::string payload;
-            if (mqttExtractPublishPayload(fixed, rem, &payload))
+            std::string topic;
+            if (mqttExtractPublishPayloadAndTopic(fixed, rem, &topic, &payload))
             {
+                // Defensive filter: only accept detections from the exact per-camera topic.
+                if (topic != m_topic)
+                    continue;
                 m_receivedPublishCount.fetch_add(1, std::memory_order_relaxed);
                 std::lock_guard<std::mutex> lock(m_payloadMutex);
                 m_lastPayload = std::move(payload);

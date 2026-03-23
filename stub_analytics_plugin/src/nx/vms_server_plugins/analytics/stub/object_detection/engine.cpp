@@ -19,6 +19,8 @@ using namespace nx::sdk::analytics;
 static const std::set<std::string> kObjectTypeIdsGeneratedByDefault = {
     "nx.base.Vehicle",
     "nx.base.Face",
+    "nx.base.Person",
+    "nx.base.Unknown",
 };
 
 Engine::Engine(): nx::sdk::analytics::Engine(ini().enableOutput)
@@ -71,8 +73,12 @@ std::string Engine::manifestString() const
         std::string caption = objectTypeId;
         if (objectTypeId == "nx.base.Face")
             caption = "Detect Face";
+        else if (objectTypeId == "nx.base.Person")
+            caption = "Detect Intrusion (People)";
         else if (objectTypeId == "nx.base.Vehicle")
             caption = "Detect Vehicle";
+        else if (objectTypeId == "nx.base.Unknown")
+            caption = "Detect Fire & Smoke";
 
         Json::object generationSetting = {
             {"type", "CheckBox"},

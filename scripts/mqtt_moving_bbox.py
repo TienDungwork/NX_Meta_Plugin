@@ -4,9 +4,9 @@ import paho.mqtt.client as mqtt
 import json
 import time
 
-BROKER = "localhost"
+BROKER = "103.9.156.56"
 PORT = 1883
-CAMERA_ID = "0fdba7df-64c1-ebd4-9e73-677f2d77f211"
+CAMERA_ID = "f0949fe9-0a3d-0fc0-84e5-79f756961824"
 TOPIC = f"vms/ai/detections/{CAMERA_ID}"
 # USERNAME = "admin"
 # PASSWORD = "Ab@123456"
@@ -69,6 +69,8 @@ def send_moving_detections():
                     {
                         # Use canonical labels so VMS taxonomy mapping works.
                         "label": "face",
+                        # Optional: display name on bbox (person identity).
+                        "name": "Nguyen Van A",
                         "confidence": 0.95,
                         "bbox": [
                             0.15,           # x: left side
@@ -76,10 +78,15 @@ def send_moving_detections():
                             BBOX_WIDTH,     # width
                             BBOX_HEIGHT     # height
                         ],
+                        "attributes": {
+                            "EmployeeId": "E001"
+                        },
                         "trackId": 1
                     },
                     {
                         "label": "vehicle",
+                        # Optional: display name on bbox (vehicle identity/type).
+                        "name": "Toyota Vios",
                         "confidence": 0.90,
                         "bbox": [
                             0.70,           # x: right side
@@ -87,6 +94,10 @@ def send_moving_detections():
                             BBOX_WIDTH,     # width
                             BBOX_HEIGHT     # height
                         ],
+                        "attributes": {
+                            "Plate": "51A-12345",
+                            "VehicleType": "Sedan"
+                        },
                         "trackId": 2
                     },
                 ]

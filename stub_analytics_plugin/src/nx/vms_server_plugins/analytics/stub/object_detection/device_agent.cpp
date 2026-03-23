@@ -56,13 +56,18 @@ static std::string objectTypeIdFromLabel(const std::string& label)
 {
     const std::string l = normalizeLabelToLower(label);
     // Map incoming MQTT labels to supported taxonomy object types.
-    // Supported only:
-    // - Face:    "face", "person", "people"
-    // - Vehicle: "vehicle", "car"
-    if (l == "person" || l == "people" || l == "face")
+    // - Intrusion/People: "intrusion", "person", "people"
+    // - Face:             "face"
+    // - Vehicle:          "vehicle", "car"
+    // - Fire/Smoke:       "fire", "smoke"
+    if (l == "intrusion" || l == "person" || l == "people")
+        return "nx.base.Person";
+    if (l == "face")
         return "nx.base.Face";
     if (l == "vehicle" || l == "car")
         return "nx.base.Vehicle";
+    if (l == "fire" || l == "smoke")
+        return "nx.base.Unknown";
     return "nx.base.Unknown";
 }
 
@@ -71,6 +76,33 @@ static std::string typeIdForDrawing(const std::string& label)
 {
     const std::string t = objectTypeIdFromLabel(label);
     return (t == "nx.base.Unknown") ? "nx.base.Face" : t;
+}
+
+static std::string displayNameFromLabel(const std::string& label)
+{
+    const std::string l = normalizeLabelToLower(label);
+    if (l == "intrusion" || l == "person" || l == "people")
+        return "People";
+    if (l == "face")
+        return "Face";
+    if (l == "vehicle" || l == "car")
+        return "Vehicle";
+    if (l == "fire")
+        return "Fire";
+    if (l == "smoke")
+        return "Smoke";
+    return "Unknown";
+}
+
+static std::string jsonScalarToString(const nx::kit::Json& v)
+{
+    if (v.is_string())
+        return v.string_value();
+    if (v.is_number())
+        return std::to_string(v.number_value());
+    if (v.is_bool())
+        return v.bool_value() ? "true" : "false";
+    return {};
 }
 
 static Rect generateBoundingBox(int frameIndex, int trackIndex, int trackCount)
@@ -124,8 +156,6 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
             std::chrono::steady_clock::now().time_since_epoch())
             .count();
 
-    rollMqttMessageRateWindows(nowMs);
-
     // Clear boxes when no successful bbox payload for a short time.
     const int64_t lastMs = m_lastMqttPayloadMs.load(std::memory_order_relaxed);
     if (lastMs != 0 && (nowMs - lastMs) > kMqttHoldMs)
@@ -145,8 +175,6 @@ Ptr<IMetadataPacket> DeviceAgent::generateObjectMetadataPacket(int64_t frameTime
     for (const auto& obj : cached)
         metadataPacket->addItem(obj);
 
-    appendMqttMessageRateHud(metadataPacket);
-
     return metadataPacket;
 }
 
@@ -161,11 +189,13 @@ void DeviceAgent::restartMqttSubscriber(
         m_mqttSubscriber.reset();
     }
 
-    if (!cfg.enabled)
+    if (!cfg.enabled || m_topic.empty())
     {
         m_mqttMsgRateWindowStartMs = 0;
         m_mqttRxCountBaseline = 0;
         m_mqttMsgsPerSecondDisplay.store(0, std::memory_order_relaxed);
+        if (cfg.enabled && m_topic.empty())
+            NX_PRINT << "Skip MQTT subscribe: empty per-camera topic (invalid camera id)";
         return;
     }
 
@@ -188,7 +218,9 @@ DeviceAgent::DeviceAgent(const nx::sdk::IDeviceInfo* deviceInfo):
         deviceId = deviceId.substr(1, deviceId.size() - 2);
 
     m_deviceId = deviceId;
-    m_topic = "vms/ai/detections/" + deviceId;
+    m_topic = deviceId.empty() ? std::string() : ("vms/ai/detections/" + deviceId);
+    if (m_topic.empty())
+        NX_PRINT << "Camera id is empty; MQTT detections are disabled for this device";
 
     // Initial MQTT config from shared store (module `mqtt/` can override it via UI).
     m_mqttCfgVersion = nx::vms_server_plugins::analytics::stub::common::MqttConfigStore::instance().version();
@@ -359,7 +391,8 @@ void DeviceAgent::mqttParseThreadMain()
 
             const std::string label =
                 det["label"].is_string() ? det["label"].string_value() : "";
-            const std::string typeId = typeIdForDrawing(label);
+            const std::string semanticTypeId = objectTypeIdFromLabel(label);
+            const std::string drawingTypeId = typeIdForDrawing(label);
 
             const double confidence =
                 det["confidence"].is_number() ? det["confidence"].number_value() : 1.0;
@@ -367,24 +400,42 @@ void DeviceAgent::mqttParseThreadMain()
                 det["trackId"].is_number() ? det["trackId"].int_value() : 0;
 
             auto obj = makePtr<ObjectMetadata>();
-            obj->setTypeId(typeId);
+            obj->setTypeId(drawingTypeId);
 
-            const std::string trackKey = typeId + "#" + std::to_string(trackId);
+            const std::string trackKey = semanticTypeId + "#" + std::to_string(trackId);
             obj->setBoundingBox(Rect{x, y, w, h});
             obj->setConfidence(confidence);
             obj->setTrackId(trackIdByTrackType(trackKey));
 
             const bool typeAllowed =
                 objectTypeIdsToGenerateLocal.empty() ||
-                objectTypeIdsToGenerateLocal.find(typeId)
+                objectTypeIdsToGenerateLocal.find(semanticTypeId)
                     != objectTypeIdsToGenerateLocal.cend();
 
             if (sendAttributesLocal && typeAllowed)
             {
-                if (auto it = kObjectAttributes.find(typeId); it != kObjectAttributes.cend())
+                if (auto it = kObjectAttributes.find(semanticTypeId); it != kObjectAttributes.cend())
                 {
                     for (const auto& attr : it->second)
                         obj->addAttribute(makePtr<Attribute>(attr.first, attr.second));
+                }
+            }
+
+            std::string displayName =
+                det["name"].is_string() ? det["name"].string_value() : displayNameFromLabel(label);
+            if (displayName.empty())
+                displayName = displayNameFromLabel(label);
+            obj->addAttribute(makePtr<Attribute>("Name", displayName));
+
+            // Optional custom attributes from MQTT payload:
+            // "attributes": {"VehicleType":"Sedan","Plate":"51A-12345"}
+            if (det["attributes"].is_object())
+            {
+                for (const auto& kv : det["attributes"].object_items())
+                {
+                    const std::string value = jsonScalarToString(kv.second);
+                    if (!kv.first.empty() && !value.empty())
+                        obj->addAttribute(makePtr<Attribute>(kv.first, value));
                 }
             }
 

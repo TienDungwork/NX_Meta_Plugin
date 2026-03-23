@@ -78,6 +78,28 @@ static const std::string kDeviceAgentManifest = /*suppress newline*/ 1 + (const 
                 "Glasses.Type",
                 "Helmet"
             ]
+        },
+        {
+            "objectTypeId": "nx.base.Person",
+            "attributes":
+            [
+                "Gender",
+                "Age",
+                "Hat.Type",
+                "Name",
+                "Bag.Color",
+                "Weapon",
+                "Mask",
+                "Glasses.Type",
+                "Helmet"
+            ]
+        },
+        {
+            "objectTypeId": "nx.base.Unknown",
+            "attributes":
+            [
+                "Name"
+            ]
         }
     ]
 }
